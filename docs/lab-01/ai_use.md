@@ -2,12 +2,10 @@
 
 I used the Antigravity coding agent through my Google Cloud Platform account. I mainly used Gemini 3.6 Flash as the LLM with a thinking level of High.
 
-## Selected Key Prompts
+## Selected Key Prompts by Issue
 
-| Prompt Name | Actual Prompt Text | My Reflection |
-| :--- | :--- | :--- |
-| Plan Lab 1 Implementation | Read the enclosed TokTickIT Lab 1 requirements. Summarize the four GitHub Issues, their dependencies, required outputs, and required automated tests. Propose an implementation order, but do not write code yet. | Worked in one shot with clear structure and breakdown. |
-| Analyze Project Structure & Plan Issue 2 | Read my file structure again, I've made some small edits. Then explain issue 2 and put together a step-by-step implementation plan. | Generated a complete implementation plan covering Express setup, Supertest, React UI, and Vitest. |
-| Implement Health Check API | Create GET /api/health endpoint returning status 200 and { status: 'ok', service: 'TokTickIT API' }. | Implemented in server/src/app.ts cleanly. |
-| Write Supertest API-01 Test | Create a Supertest test in server/tests/lab-01/api-01.test.ts to verify GET /api/health. | Test passed on first run. |
-| Build Check System UI | Update React App component with Bootstrap to show TokTickIT IT Service Desk, [Check System] button, and handling of Online/Offline status. | Created clean UI with loading and error states. |
+| Issue / Feature | Prompt Name | Actual Prompt Text Summary | My Reflection |
+| :--- | :--- | :--- | :--- |
+| **Issue 1** | Project Setup & Planning | Read TokTickIT Lab 1 requirements, summarize the four GitHub Issues, dependencies, and automated tests. Propose implementation roadmap and set up project foundation including frontend, backend, prisma, `.gitignore`, `.env.example`, and `README.md`. | Worked in one shot. Generated clear breakdown, folder structure, and setup roadmap. |
+| **Issue 2** | Health Check Feature | Plan and implement `GET /api/health` endpoint returning HTTP 200 `{ status: 'ok', service: 'TokTickIT API' }`, write Supertest test (`api-01.test.ts`), and build Check System UI with Bootstrap loading/error states. | Successfully implemented vertical slice from Express backend API to React UI and Vitest/Supertest suites. |
+| **Issue 3** | Category Model & Seeding | Explain Issue 3 requirements and plan, define Prisma Category model (`id`, `name`, `createdAt`), configure Prisma v7 (`prisma.config.ts`), run migration, and create idempotent seed script inserting the 4 IT request categories. | Successfully created schema, migration SQL, and idempotent seed script using `upsert` that passed duplicate run tests cleanly. |
