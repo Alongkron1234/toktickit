@@ -34,7 +34,7 @@
 ### Pull Requests Reviewed by Me (Submitted by Peer)
 | PR Title / Feature Branch | Peer PR Link | My Review Comment | Peer Response / Action | Approval Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `feature/1-project-foundation` | https://github.com/atiwit/toktickit/pull/2 | ทำตามทีละสเต็ปได้เป๊ะ รวดเร็ว เป็นระเบียบและถูกต้องสมกับเป็นเพื่อนกูจริวๆ | ขอบคุณสำหรับการ review ครับ | Approved |
-| `feature/2-health-check-api` | https://github.com/napatsun/TokTickIT/pull/8 | มี API Health Check ถูกต้องตาม Criteria ผ่านครบถ้วนทำส่วนต่อไปได้เลยย | ขอบคุณสำหรับการตรวจครับ | Approved |
-| `feature/3-category-seed` | https://github.com/atiwit/toktickit/pull/7 | มีไฟล์ migrations เรียบร้อยครบถ้วนดี | ขอบคุณครับ ดำเนินการ merge เรียบร้อย | Approved |
-| `feature/4-category-list` | https://github.com/atiwit/toktickit/pull/8 | ตรวจสอบ endpoint GET /api/categories และ UI แสดงผลครบถ้วน Approved ครับ | ขอบคุณครับ ดำเนินการ merge เรียบร้อย | Approved |
+| `feature/1-project-foundation` | https://github.com/atiwit/toktickit/pull/2 | ทำตามทีละสเต็ปได้เป๊ะ รวดเร็ว เป็นระเบียบและถูกต้องสมกับเป็นเพื่อนกูจริวๆ | ขอบคุณครับเพื่อน จะทำให้ดีแบบนี้อย่างสม่ำเสมอนะโบร๋ | Approved |
+| `feature/2-health-check-api` | https://github.com/napatsun/TokTickIT/pull/8 | มี API Health Check ถูกต้องตาม Criteria ผ่านครบถ้วนทำส่วนต่อไปได้เลยย | ขอบคุณสำหรับการรีวิวเพื่อให้ผมได้มั่นใจว่าที่ทำมาถูกต้องเรียบร้อย | Approved |
+| `feature/3-category-seed` | https://github.com/atiwit/toktickit/pull/7 | มีไฟล์ migrations เรียบร้อยครบถ้วนดี | แต้งกิ้วเพื่อน เช็คละเอียดเลยนะเนี่ย😘😘 | Approved |
+| `feature/4-category-list` | https://github.com/atiwit/toktickit/pull/8 | ตรวจสอบ endpoint GET /api/categories และ UI แสดงผลครบถ้วน Approved ครับ | Thank you so much for reviewing my code | Approved |
