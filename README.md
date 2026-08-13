@@ -38,21 +38,21 @@ toktickit/
 Ensure you have the following installed on your system:
 - **Node.js**: v18+ 
 - **npm**: v9+
-- **PostgreSQL**: v14+ (or Docker / Prisma Local Postgres)
+- **PostgreSQL**: v14+ (or Prisma Local Postgres / Docker)
 
 ### 2. Installation
-Clone the repository and install dependencies:
+Clone the repository and install dependencies inside `server` and `client`:
 ```bash
 # Clone the repository
 git clone https://github.com/Alongkron1234/toktickit.git
 cd toktickit
 
-# Install root dependencies
-npm install
-
-# Install server and client dependencies
+# Install server dependencies
 cd server && npm install
-cd ../client && npm install
+cd ..
+
+# Install client dependencies
+cd client && npm install
 cd ..
 ```
 
@@ -66,6 +66,10 @@ Ensure `DATABASE_URL` is set to your PostgreSQL connection string in `.env`.
 ### 4. Database Setup & Seeding
 Run Prisma migrations and seed initial IT request categories:
 ```bash
+# Start local Prisma Postgres server
+cd server
+npx prisma dev
+
 # Apply database migrations
 npx prisma migrate dev
 
@@ -94,16 +98,15 @@ Start the backend and frontend development servers:
 
 ## 🧪 Running Automated Tests
 
-Run server API tests and client component tests:
+Run server API tests and client component tests inside their respective directories:
 
 ```bash
 # Run server integration tests (Supertest)
-npm run test:server
+cd server
+npm test
 
 # Run client unit tests (Vitest)
-npm run test:client
-
-# Run all tests
+cd client
 npm test
 ```
 
