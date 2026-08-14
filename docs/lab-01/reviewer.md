@@ -27,9 +27,9 @@
 ---
 
 ## 2. Peer I Reviewed Details
-- **Peer Name:** Atiwit Thongngoen / Napatsun Kasemweerasan / Krittapat Panyasomphan
-- **Student ID:** 67070501048 / 67070501014 / 67070501052
-- **GitHub Username:** atiwit (https://github.com/atiwit) / napatsun (https://github.com/napatsun) / krittaphato3 (https://github.com/krittaphato3)
+- **Peer Name:** Atiwit Thongngoen / Napatsun Kasemweerasan
+- **Student ID:** 67070501048 / 67070501014
+- **GitHub Username:** atiwit (https://github.com/atiwit) / napatsun (https://github.com/napatsun)
 
 ### Pull Requests Reviewed by Me (Submitted by Peer)
 | PR Title / Feature Branch | Peer PR Link | My Review Comment | Peer Response / Action | Approval Status |

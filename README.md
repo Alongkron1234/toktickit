@@ -19,6 +19,7 @@ TokTickIT is an IT service desk web application for handling Account & Access, H
 ```
 toktickit/
 ├── client/          # React + Vite frontend
+│   └── tests/       # UI component tests (Vitest)
 ├── server/          # Node.js + Express + Prisma backend
 │   ├── prisma/      # Prisma schema, migrations, and seed scripts
 │   ├── src/         # Express server source code
@@ -26,7 +27,6 @@ toktickit/
 ├── docs/
 │   └── lab-01/      # Lab documentation (ai_use.md, reviewer.md, tests.md)
 ├── .gitignore
-├── .env.example
 └── README.md
 ```
 
@@ -57,9 +57,9 @@ cd ..
 ```
 
 ### 3. Environment Configuration
-Copy `.env.example` to `.env` in the project root:
+Copy `server/.env.example` to `server/.env`:
 ```bash
-cp .env.example .env
+cp server/.env.example server/.env
 ```
 Ensure `DATABASE_URL` is set to your PostgreSQL connection string in `.env`.
 

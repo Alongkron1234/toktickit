@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import App from './App';
+import App from '../../src/App';
 
 describe('UI Tests for Lab 1 (TokTickIT UI)', () => {
   beforeEach(() => {

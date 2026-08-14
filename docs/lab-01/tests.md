@@ -8,20 +8,17 @@ All automated tests for Lab 1 are executed using Vitest and Supertest (`npm test
 | :--- | :--- | :--- | :--- | :--- |
 | **API-01** | Supertest | Health endpoint returns 200 and expected JSON | `server/tests/lab-01/health.test.ts` | **PASSED** |
 | **API-02** | Supertest | Categories endpoint returns the four seeded categories | `server/tests/lab-01/categories.test.ts` | **PASSED** |
-| **UI-01** | Vitest | TokTickIT heading renders | `client/src/App.test.tsx` | **PASSED** |
-| **UI-02** | Vitest | Loading state changes to category list | `client/src/App.test.tsx` | **PASSED** |
-| **UI-03** | Vitest | API failure displays a useful error message | `client/src/App.test.tsx` | **PASSED** |
+| **UI-01** | Vitest | TokTickIT heading renders | `client/tests/lab-01/App.test.tsx` | **PASSED** |
+| **UI-02** | Vitest | Loading state changes to category list | `client/tests/lab-01/App.test.tsx` | **PASSED** |
+| **UI-03** | Vitest | API failure displays a useful error message | `client/tests/lab-01/App.test.tsx` | **PASSED** |
 
 ---
 
 ### Command Output (`npm test`)
 
 ```text
-> test
-> npm run test:server && npm run test:client
-
 > test:server
-> npm --prefix server run test
+> cd server && npm test
 
  RUN  v4.1.10 /Users/alongkorn/Coding/Lab_CPE334/toktickit/server
  ✓ tests/lab-01/health.test.ts (1 test) 8ms
@@ -31,10 +28,10 @@ All automated tests for Lab 1 are executed using Vitest and Supertest (`npm test
       Tests  2 passed (2)
 
 > test:client
-> npm --prefix client run test
+> cd client && npm test
 
  RUN  v4.1.10 /Users/alongkorn/Coding/Lab_CPE334/toktickit/client
- ✓ src/App.test.tsx (3 tests) 56ms
+ ✓ tests/lab-01/App.test.tsx (3 tests) 56ms
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
