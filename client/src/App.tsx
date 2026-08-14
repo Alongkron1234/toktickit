@@ -1,24 +1,35 @@
 import { useState } from 'react'
 
-interface HealthResponse {
-  status: string
-  service: string
+interface Category {
+  id: number
+  name: string
 }
 
 function App() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'online' | 'offline'>('idle')
+  const [categories, setCategories] = useState<Category[]>([])
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const checkSystem = async () => {
     setStatus('loading')
     setErrorMsg(null)
+    setCategories([])
+
     try {
-      const response = await fetch('/api/health')
-      if (!response.ok) {
+      const [healthRes, categoriesRes] = await Promise.all([
+        fetch('/api/health'),
+        fetch('/api/categories'),
+      ])
+
+      if (!healthRes.ok || !categoriesRes.ok) {
         throw new Error('Unable to connect to TokTickIT API')
       }
-      const data: HealthResponse = await response.json()
-      if (data.status === 'ok') {
+
+      const healthData = await healthRes.json()
+      const categoriesData: Category[] = await categoriesRes.json()
+
+      if (healthData.status === 'ok' && Array.isArray(categoriesData)) {
+        setCategories(categoriesData)
         setStatus('online')
       } else {
         setStatus('offline')
@@ -43,7 +54,7 @@ function App() {
               onClick={checkSystem}
               disabled={status === 'loading'}
             >
-              {status === 'loading' ? 'Loading...' : 'Check System'}
+              {status === 'loading' ? 'loading...' : 'Check System'}
             </button>
           </div>
 
@@ -57,8 +68,23 @@ function App() {
           )}
 
           {status === 'online' && (
-            <div className="alert alert-success mt-3" role="alert">
-              <h4 className="alert-heading h5 mb-0">System Status: Online</h4>
+            <div>
+              <div className="alert alert-success mt-3" role="alert">
+                <h4 className="alert-heading h5 mb-0">System Status: Online</h4>
+              </div>
+
+              {categories.length > 0 && (
+                <div className="mt-4">
+                  <h5 className="h6 fw-bold mb-3 text-secondary">Supported Request Categories:</h5>
+                  <ol className="list-group list-group-numbered">
+                    {categories.map((cat) => (
+                      <li key={cat.id} className="list-group-item">
+                        {cat.name}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </div>
           )}
 
