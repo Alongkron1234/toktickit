@@ -66,6 +66,7 @@ The testing strategy follows **Test-Driven Development (TDD)** and **Test-Driven
 | **AC-16** | API-09 | `server/tests/lab-02/attachments.api.test.ts` |
 | **AC-17** | API-10, UI-08, E2E-03 | `server/tests/lab-02/attachments.api.test.ts`, `client/src/tests/lab-02/AttachmentSection.test.tsx` |
 | **AC-18** | API-11, E2E-03 | `server/tests/lab-02/attachments.api.test.ts`, `e2e/lab-02/requester-ticket-flow.spec.ts` |
+| **AC-19** | UI-08, E2E-03 | `client/src/tests/lab-02/AttachmentSection.test.tsx`, `e2e/lab-02/requester-ticket-flow.spec.ts` |
 
 ---
 

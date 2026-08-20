@@ -209,6 +209,7 @@ Identity Header: `X-Dev-Requester-Id: <requester_id>`
 - **AC-16:** Given an executable file (.exe) or a 10MB JPG file, when the user attempts to upload it, then the upload is rejected with a clear error message.
 - **AC-17:** Given an active attachment on Ticket #101, when the owner submits a soft removal with reason "Uploaded outdated document", then `isRemoved` is set to true, the removal reason is stored, and the download link is permanently disabled.
 - **AC-18:** Given an attachment that has been soft-removed, when any user attempts to trigger its download URL directly, then the request returns HTTP 404 Not Found / 403 Forbidden.
+- **AC-19:** Given a ticket with a soft-removed attachment, when the user views the Requester Ticket Detail screen, then the Attachment Section clearly displays the original filename, a "Removed" status badge, the recorded removal reason text, and the removal timestamp, while keeping the download and preview buttons visually disabled.
 
 ---
 
@@ -216,7 +217,7 @@ Identity Header: `X-Dev-Requester-Id: <requester_id>`
 
 ### Part 1: Product Completion
 - [ ] All functional requirements (FR-01 to FR-12) and business rules (BR-01 to BR-26) are fully implemented.
-- [ ] All 18 Acceptance Criteria (AC-01 to AC-18) pass with automated test evidence.
+- [ ] All 19 Acceptance Criteria (AC-01 to AC-19) pass with automated test evidence.
 - [ ] Automated tests cover Unit, API, UI Component, and E2E scenarios without skipped or flaky tests.
 - [ ] Zen Green design system guidelines, color tokens, typography, and responsive layouts are visually verified.
 - [ ] Data model migrations and idempotent seed scripts run cleanly on PostgreSQL.
