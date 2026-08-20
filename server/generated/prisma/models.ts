@@ -8,5 +8,9 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/DevelopmentRequester.js'
 export type * from './models/Category.js'
+export type * from './models/RelatedSystem.js'
+export type * from './models/Ticket.js'
+export type * from './models/Attachment.js'
 export type * from './commonInputTypes.js'

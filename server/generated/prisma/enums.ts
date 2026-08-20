@@ -9,7 +9,22 @@
 * 🟢 You can import this file directly.
 */
 
+export const Priority = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL'
+} as const
+
+export type Priority = (typeof Priority)[keyof typeof Priority]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const TicketStatus = {
+  NEW: 'NEW',
+  OPEN: 'OPEN',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED'
+} as const
+
+export type TicketStatus = (typeof TicketStatus)[keyof typeof TicketStatus]
