@@ -51,7 +51,11 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  Category: 'Category'
+  DevelopmentRequester: 'DevelopmentRequester',
+  Category: 'Category',
+  RelatedSystem: 'RelatedSystem',
+  Ticket: 'Ticket',
+  Attachment: 'Attachment'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -70,13 +74,70 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const DevelopmentRequesterScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  email: 'email',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DevelopmentRequesterScalarFieldEnum = (typeof DevelopmentRequesterScalarFieldEnum)[keyof typeof DevelopmentRequesterScalarFieldEnum]
+
+
 export const CategoryScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  isActive: 'isActive',
   createdAt: 'createdAt'
 } as const
 
 export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
+
+
+export const RelatedSystemScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  isActive: 'isActive',
+  createdAt: 'createdAt'
+} as const
+
+export type RelatedSystemScalarFieldEnum = (typeof RelatedSystemScalarFieldEnum)[keyof typeof RelatedSystemScalarFieldEnum]
+
+
+export const TicketScalarFieldEnum = {
+  id: 'id',
+  ticketNumber: 'ticketNumber',
+  requesterId: 'requesterId',
+  categoryId: 'categoryId',
+  relatedSystemId: 'relatedSystemId',
+  summary: 'summary',
+  description: 'description',
+  requestedPriority: 'requestedPriority',
+  itPriority: 'itPriority',
+  currentStatus: 'currentStatus',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TicketScalarFieldEnum = (typeof TicketScalarFieldEnum)[keyof typeof TicketScalarFieldEnum]
+
+
+export const AttachmentScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  originalName: 'originalName',
+  storedName: 'storedName',
+  mimeType: 'mimeType',
+  fileSize: 'fileSize',
+  isRemoved: 'isRemoved',
+  removalReason: 'removalReason',
+  removedAt: 'removedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AttachmentScalarFieldEnum = (typeof AttachmentScalarFieldEnum)[keyof typeof AttachmentScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -93,4 +154,12 @@ export const QueryMode = {
 } as const
 
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 

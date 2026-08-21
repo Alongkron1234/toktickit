@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "Category" (
+CREATE TABLE IF NOT EXISTS "Category" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -8,4 +8,5 @@ CREATE TABLE "Category" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
+CREATE UNIQUE INDEX IF NOT EXISTS "Category_name_key" ON "Category"("name");
+
