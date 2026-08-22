@@ -30,7 +30,7 @@ The testing strategy follows **Test-Driven Development (TDD)** and **Test-Driven
 | **API-09** | API | AC-16, BR-19 | Upload invalid file type (.exe) or oversized file (>5MB) | 400 Bad Request / 422 Unprocessable Entity | `server/tests/lab-02/attachments.api.test.ts` | Pending |
 | **API-10** | API | AC-17, BR-21 | Soft-remove attachment with removal reason | 200 OK; `isRemoved = true`, reason saved | `server/tests/lab-02/attachments.api.test.ts` | Pending |
 | **API-11** | API | AC-18, BR-22 | Attempt to download a soft-removed attachment | 404 Not Found / 403 Forbidden; download blocked | `server/tests/lab-02/attachments.api.test.ts` | Pending |
-| **UI-01** | UI | AC-06, BR-05 | Requester Selection dropdown renders active users | Dropdown displays active users; inactive user hidden | `client/src/tests/lab-02/RequesterSelector.test.tsx` | Pending |
+| **UI-01** | UI | AC-06, BR-05 | Requester Selection dropdown renders active users | Dropdown displays active users; inactive user hidden | `client/src/tests/lab-02/CreateTicket.test.tsx` | Pending |
 | **UI-02** | UI | AC-02, BR-12 | Submit Create Ticket form with empty summary | Field error "Summary is required" displayed below input | `client/src/tests/lab-02/CreateTicket.test.tsx` | Pending |
 | **UI-03** | UI | AC-03, BR-13 | Submit button busy state during API request | Button displays spinner, text "Submitting...", disabled | `client/src/tests/lab-02/CreateTicket.test.tsx` | Pending |
 | **UI-04** | UI | AC-04, BR-14 | Backend failure during ticket creation submission | Error alert displayed; form field inputs preserved | `client/src/tests/lab-02/CreateTicket.test.tsx` | Pending |
