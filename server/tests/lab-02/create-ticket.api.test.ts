@@ -34,5 +34,6 @@ describe('Development Requester API & Context Middleware (Lab 2 - Issue 3)', () 
 
     expect(response.status).toBe(403);
     expect(response.body).toHaveProperty('success', false);
+    expect(response.body.error.message).toMatch(/invalid or inactive/i);
   });
 });
