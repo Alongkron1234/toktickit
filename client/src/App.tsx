@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { RequesterProvider, useRequester } from './context/RequesterContext';
 import { RequesterSelectionScreen } from './components/RequesterSelectionScreen';
 import { Header } from './components/Header';
+import { CreateTicketScreen } from './components/CreateTicketScreen';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -32,15 +33,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {activeNav === 'create-ticket' && (
-          <div className="card shadow-sm border-0 p-4 w-100" style={{ borderRadius: '10px' }}>
-            <h1 className="fw-bold fs-3 mb-2" style={{ color: '#1A2E26' }}>
-              Create IT Support Ticket
-            </h1>
-            <p className="text-muted mb-4">Submit a new request for IT support.</p>
-            <div className="alert alert-info">
-              Create Ticket form placeholder for Issue 5. Active user: <strong>{currentRequester.name}</strong> ({currentRequester.email}).
-            </div>
-          </div>
+          <CreateTicketScreen onNavigate={setActiveNav} />
         )}
       </main>
     </div>
