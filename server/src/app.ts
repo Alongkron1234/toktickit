@@ -6,11 +6,13 @@ dotenv.config();
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Priority, TicketStatus } from '../generated/prisma/client';
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
-const adapter = new PrismaPg({ connectionString });
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 export const prisma = new PrismaClient({ adapter });
 
 const app = express();
@@ -340,15 +342,6 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
       requesterId: req.currentRequester!.id,
     };
 
-    // Search filter (summary or ticketNumber)
-    if (search && typeof search === 'string' && search.trim()) {
-      const searchTerm = search.trim();
-      whereClause.OR = [
-        { summary: { contains: searchTerm } },
-        { ticketNumber: { contains: searchTerm } },
-      ];
-    }
-
     // Category Filter
     if (categoryId) {
       const catId = parseInt(categoryId as string, 10);
@@ -375,14 +368,11 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
     // Pagination
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 10));
-    const skip = (pageNum - 1) * limitNum;
 
-    // Fetch tickets and count total items sequentially
-    const rawTickets = await prisma.ticket.findMany({
+    // Fetch all matching tickets for current requester
+    const allTickets = await prisma.ticket.findMany({
       where: whereClause,
       orderBy: { [sortField]: sortDirection },
-      skip,
-      take: limitNum,
       include: {
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
@@ -392,15 +382,25 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
       },
     });
 
-    const totalCount = await prisma.ticket.count({ where: whereClause });
+    // Case-Insensitive Search Filter in JS
+    const searchFilter = typeof search === 'string' && search.trim() ? search.trim().toLowerCase() : '';
+    const filteredTickets = searchFilter
+      ? allTickets.filter(
+          (t) =>
+            t.summary.toLowerCase().includes(searchFilter) ||
+            t.ticketNumber.toLowerCase().includes(searchFilter)
+        )
+      : allTickets;
 
-    // Format tickets to filter out soft-removed attachments
-    const tickets = rawTickets.map((t) => ({
+    const totalCount = filteredTickets.length;
+    const totalPages = Math.ceil(totalCount / limitNum) || 1;
+    const skip = (pageNum - 1) * limitNum;
+    const pagedTickets = filteredTickets.slice(skip, skip + limitNum);
+
+    const tickets = pagedTickets.map((t) => ({
       ...t,
       attachments: t.attachments.filter((a) => !a.isRemoved).map(({ isRemoved, ...rest }) => rest),
     }));
-
-    const totalPages = Math.ceil(totalCount / limitNum) || 1;
 
     res.status(200).json({
       success: true,

@@ -37,14 +37,20 @@ describe('My Tickets Query API & Data Isolation (Lab 2 - Issue 6)', () => {
     });
   });
 
-  it('API-05: GET /api/tickets should handle search, filter, sorting, and pagination parameters', async () => {
-    // 1. Search term filter
+  it('API-05: GET /api/tickets should handle search (case-insensitive), filter, sorting, and pagination parameters', async () => {
+    // 1. Case-Insensitive Search term filter (testing uppercase search term 'BATTERY')
     const searchRes = await request(app)
-      .get('/api/tickets?search=battery')
+      .get('/api/tickets?search=BATTERY')
       .set('X-Dev-Requester-Id', '1');
 
     expect(searchRes.status).toBe(200);
     expect(searchRes.body.success).toBe(true);
+    expect(searchRes.body.data.length).toBeGreaterThan(0);
+    searchRes.body.data.forEach((ticket: any) => {
+      const matchSummary = ticket.summary.toLowerCase().includes('battery');
+      const matchNumber = ticket.ticketNumber.toLowerCase().includes('battery');
+      expect(matchSummary || matchNumber).toBe(true);
+    });
 
     // 2. Category and Priority filter
     const filterRes = await request(app)
