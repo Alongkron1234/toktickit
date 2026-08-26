@@ -48,6 +48,17 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
         } as Response;
       }
 
+      if (urlStr.includes('/api/tickets') && method === 'GET') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: [],
+            pagination: { totalCount: 0, totalPages: 1, currentPage: 1, limit: 10 },
+          }),
+        } as Response;
+      }
+
       if (urlStr.includes('/api/tickets') && method === 'POST') {
         return {
           ok: true,
@@ -64,7 +75,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
         } as Response;
       }
 
-      return { ok: false } as Response;
+      return { ok: false, json: async () => ({}) } as Response;
     });
 
     render(<App />);
@@ -97,7 +108,13 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
           }),
         } as Response;
       }
-      return { ok: false } as Response;
+      if (urlStr.includes('/api/categories')) {
+        return { ok: true, json: async () => [] } as Response;
+      }
+      if (urlStr.includes('/api/tickets')) {
+        return { ok: true, json: async () => ({ success: true, data: [], pagination: {} }) } as Response;
+      }
+      return { ok: false, json: async () => ({}) } as Response;
     });
 
     render(<App />);
@@ -123,7 +140,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
     await setupSelectedRequester();
 
     // Navigate to Create Ticket
-    const createBtn = screen.getByRole('button', { name: /Create Ticket/i });
+    const createBtn = screen.getByRole('button', { name: /^Create Ticket$/i });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
@@ -138,7 +155,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
   it('UI-03: Triggers client-side inline validation errors when submitting invalid inputs', async () => {
     await setupSelectedRequester();
 
-    const createBtn = screen.getByRole('button', { name: /Create Ticket/i });
+    const createBtn = screen.getByRole('button', { name: /^Create Ticket$/i });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
@@ -160,7 +177,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
   it('UI-04: Submits valid form, displays busy state, and shows success alert with ticket number', async () => {
     await setupSelectedRequester();
 
-    const createBtn = screen.getByRole('button', { name: /Create Ticket/i });
+    const createBtn = screen.getByRole('button', { name: /^Create Ticket$/i });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
