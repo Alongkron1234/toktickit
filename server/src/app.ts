@@ -6,10 +6,13 @@ dotenv.config();
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Priority, TicketStatus } from '../generated/prisma/client';
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 export const prisma = new PrismaClient({ adapter });
 
 const app = express();
@@ -173,7 +176,6 @@ app.get('/api/categories', async (_req, res) => {
         id: 'asc',
       },
     });
-    // Format compatible with Lab 1 and Lab 2
     res.status(200).json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -330,13 +332,96 @@ app.post('/api/tickets', requireRequesterHeader, async (req: AuthenticatedReques
   }
 });
 
-// GET /api/tickets - List owned tickets (placeholder endpoint)
-app.get('/api/tickets', requireRequesterHeader, (req: AuthenticatedRequest, res: Response) => {
-  res.status(200).json({
-    success: true,
-    message: `Tickets for requester ${req.currentRequester?.name}`,
-    data: [],
-  });
+// GET /api/tickets - Query Owned Tickets with Search, Filter, Sort & Pagination (Issue 6)
+app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+  const { search, categoryId, requestedPriority, status, sortBy, sortOrder, page, limit } = req.query;
+
+  try {
+    // Data Isolation: Only query tickets owned by the current requester
+    const whereClause: any = {
+      requesterId: req.currentRequester!.id,
+    };
+
+    // Category Filter
+    if (categoryId) {
+      const catId = parseInt(categoryId as string, 10);
+      if (!isNaN(catId)) {
+        whereClause.categoryId = catId;
+      }
+    }
+
+    // Requested Priority Filter
+    if (requestedPriority && typeof requestedPriority === 'string' && requestedPriority.trim()) {
+      whereClause.requestedPriority = requestedPriority.trim().toUpperCase();
+    }
+
+    // Status Filter
+    if (status && typeof status === 'string' && status.trim()) {
+      whereClause.currentStatus = status.trim().toUpperCase();
+    }
+
+    // Sorting
+    const validSortFields = ['createdAt', 'ticketNumber'];
+    const sortField = validSortFields.includes(sortBy as string) ? (sortBy as string) : 'createdAt';
+    const sortDirection = (sortOrder as string)?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    // Pagination
+    const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 10));
+
+    // Fetch all matching tickets for current requester
+    const allTickets = await prisma.ticket.findMany({
+      where: whereClause,
+      orderBy: { [sortField]: sortDirection },
+      include: {
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+        attachments: {
+          select: { id: true, originalName: true, storedName: true, mimeType: true, fileSize: true, isRemoved: true },
+        },
+      },
+    });
+
+    // Case-Insensitive Search Filter in JS
+    const searchFilter = typeof search === 'string' && search.trim() ? search.trim().toLowerCase() : '';
+    const filteredTickets = searchFilter
+      ? allTickets.filter(
+          (t) =>
+            t.summary.toLowerCase().includes(searchFilter) ||
+            t.ticketNumber.toLowerCase().includes(searchFilter)
+        )
+      : allTickets;
+
+    const totalCount = filteredTickets.length;
+    const totalPages = Math.ceil(totalCount / limitNum) || 1;
+    const skip = (pageNum - 1) * limitNum;
+    const pagedTickets = filteredTickets.slice(skip, skip + limitNum);
+
+    const tickets = pagedTickets.map((t) => ({
+      ...t,
+      attachments: t.attachments.filter((a) => !a.isRemoved).map(({ isRemoved, ...rest }) => rest),
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: tickets,
+      pagination: {
+        totalCount,
+        totalPages,
+        currentPage: pageNum,
+        limit: limitNum,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching my tickets:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FETCH_TICKETS_ERROR',
+        message: 'Failed to fetch tickets from database.',
+      },
+    });
+  }
 });
 
 export default app;
