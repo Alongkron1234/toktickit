@@ -7,7 +7,7 @@ export interface Requester {
   isActive: boolean;
 }
 
-interface RequesterContextType {
+export interface RequesterContextType {
   currentRequester: Requester | null;
   requesters: Requester[];
   loading: boolean;
@@ -18,7 +18,7 @@ interface RequesterContextType {
   getAuthHeaders: () => Record<string, string>;
 }
 
-const RequesterContext = createContext<RequesterContextType | undefined>(undefined);
+export const RequesterContext = createContext<RequesterContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_KEY = 'toktickit_selected_requester_id';
 

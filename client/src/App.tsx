@@ -3,12 +3,14 @@ import { RequesterProvider, useRequester } from './context/RequesterContext';
 import { RequesterSelectionScreen } from './components/RequesterSelectionScreen';
 import { Header } from './components/Header';
 import { CreateTicketScreen } from './components/CreateTicketScreen';
+import { MyTicketsScreen } from './components/MyTicketsScreen';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
 const MainAppContent: React.FC = () => {
   const { currentRequester } = useRequester();
   const [activeNav, setActiveNav] = useState<'my-tickets' | 'create-ticket'>('my-tickets');
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
   // Unselected Guard: Redirect/render Requester Selection Screen if no requester selected
   if (!currentRequester) {
@@ -21,15 +23,13 @@ const MainAppContent: React.FC = () => {
 
       <main className="container-fluid px-3 px-md-5 py-4 flex-grow-1">
         {activeNav === 'my-tickets' && (
-          <div className="card shadow-sm border-0 p-4 w-100" style={{ borderRadius: '10px' }}>
-            <h1 className="fw-bold fs-3 mb-2" style={{ color: '#1A2E26' }}>
-              My Tickets
-            </h1>
-            <p className="text-muted mb-4">View and track all of your support requests.</p>
-            <div className="alert alert-info">
-              My Tickets list view placeholder for Issue 7. Active user: <strong>{currentRequester.name}</strong> ({currentRequester.email}).
-            </div>
-          </div>
+          <MyTicketsScreen
+            onNavigateToCreate={() => setActiveNav('create-ticket')}
+            onSelectTicket={(ticketId) => {
+              setSelectedTicketId(ticketId);
+              // Ready for Issue 8 Ticket Detail view navigation
+            }}
+          />
         )}
 
         {activeNav === 'create-ticket' && (
