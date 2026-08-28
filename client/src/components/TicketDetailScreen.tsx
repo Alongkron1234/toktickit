@@ -162,8 +162,14 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     e.preventDefault();
     if (!removingAttachment || !currentRequester) return;
 
-    if (!removalReason.trim() || removalReason.trim().length < 3) {
+    const trimmed = removalReason.trim();
+    if (!trimmed || trimmed.length < 3) {
       setRemoveError('Please enter a valid removal reason (minimum 3 characters).');
+      return;
+    }
+
+    if (trimmed.length > 200) {
+      setRemoveError('Removal reason cannot exceed 200 characters.');
       return;
     }
 
@@ -580,18 +586,24 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
                   </p>
 
                   <div className="mb-3">
-                    <label htmlFor="removal-reason-input" className="form-label fw-semibold small">Removal Reason *</label>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <label htmlFor="removal-reason-input" className="form-label fw-semibold small mb-0">Removal Reason *</label>
+                      <span className={`extra-small ${removalReason.length > 200 ? 'text-danger fw-bold' : 'text-muted'}`}>
+                        {removalReason.length}/200
+                      </span>
+                    </div>
                     <textarea
                       id="removal-reason-input"
                       className="form-control"
                       rows={3}
+                      maxLength={200}
                       placeholder="e.g. Uploaded outdated log file by mistake"
                       value={removalReason}
                       onChange={(e) => setRemovalReason(e.target.value)}
                       required
                     ></textarea>
                     <div className="form-text extra-small mt-1 text-muted">
-                      Please document why this attachment is being removed (minimum 3 characters).
+                      Please document why this attachment is being removed (between 3 and 200 characters).
                     </div>
                   </div>
                 </div>
@@ -607,7 +619,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
                   <button
                     type="submit"
                     className="btn btn-danger btn-sm fw-semibold px-4"
-                    disabled={!removalReason.trim() || removing}
+                    disabled={!removalReason.trim() || removalReason.trim().length < 3 || removalReason.trim().length > 200 || removing}
                   >
                     {removing ? 'Removing...' : 'Confirm Soft Remove'}
                   </button>
