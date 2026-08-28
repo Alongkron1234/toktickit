@@ -12,3 +12,7 @@ build/
 .claude/
 .windsurf/
 skills-lock.json
+
+# User Uploaded Files (Runtime)
+uploads/
+server/uploads/

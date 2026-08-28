@@ -4,6 +4,7 @@ import { RequesterSelectionScreen } from './components/RequesterSelectionScreen'
 import { Header } from './components/Header';
 import { CreateTicketScreen } from './components/CreateTicketScreen';
 import { MyTicketsScreen } from './components/MyTicketsScreen';
+import { TicketDetailScreen } from './components/TicketDetailScreen';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -19,21 +20,41 @@ const MainAppContent: React.FC = () => {
 
   return (
     <div className="min-vh-100 d-flex flex-column" style={{ backgroundColor: '#F5F7F6' }}>
-      <Header activeNav={activeNav} onNavigate={setActiveNav} />
+      <Header
+        activeNav={activeNav}
+        onNavigate={(nav) => {
+          setActiveNav(nav);
+          setSelectedTicketId(null);
+        }}
+      />
 
       <main className="container-fluid px-3 px-md-5 py-4 flex-grow-1">
         {activeNav === 'my-tickets' && (
-          <MyTicketsScreen
-            onNavigateToCreate={() => setActiveNav('create-ticket')}
-            onSelectTicket={(ticketId) => {
-              setSelectedTicketId(ticketId);
-              // Ready for Issue 8 Ticket Detail view navigation
-            }}
-          />
+          selectedTicketId ? (
+            <TicketDetailScreen
+              ticketId={selectedTicketId}
+              onBack={() => setSelectedTicketId(null)}
+            />
+          ) : (
+            <MyTicketsScreen
+              onNavigateToCreate={() => {
+                setSelectedTicketId(null);
+                setActiveNav('create-ticket');
+              }}
+              onSelectTicket={(ticketId) => {
+                setSelectedTicketId(ticketId);
+              }}
+            />
+          )
         )}
 
         {activeNav === 'create-ticket' && (
-          <CreateTicketScreen onNavigate={setActiveNav} />
+          <CreateTicketScreen
+            onNavigate={(nav) => {
+              setSelectedTicketId(null);
+              setActiveNav(nav);
+            }}
+          />
         )}
       </main>
     </div>
