@@ -27,7 +27,7 @@
 | `feature/ticket-create-ui` | Pending | Pending | Pending | Pending |
 | `feature/my-tickets-api` | Pending | Pending | Pending | Pending |
 | `feature/my-tickets-ui` | Pending | Pending | Pending | Pending |
-| `feature/ticket-detail-and-attachments` | Pending | Pending | Pending | Pending |
+| `feature/ticket-detail-and-attachments` | https://github.com/Alongkron1234/toktickit/pull/8 | Check maximum removal reason length (200 chars) on Frontend UI input. | Updated `TicketDetailScreen.tsx` adding `maxLength={200}`, character counter `(0/200)`, and client-side length validation. | Approved |
 | `feature/e2e-and-responsive` | Pending | Pending | Pending | Pending |
 | `lab2-staging` -> `main` | Pending | Pending | Pending | Pending |
 

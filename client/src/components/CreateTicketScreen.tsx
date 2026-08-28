@@ -24,6 +24,9 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
   const [summary, setSummary] = useState<string>('');
   const [requestedPriority, setRequestedPriority] = useState<string>('MEDIUM');
   const [description, setDescription] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   // Options State
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -38,6 +41,34 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
 
   // Client Validation State
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+
+  // File Validation Process Helper
+  const processFile = (file: File) => {
+    setFileError(null);
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      setFileError('Only JPG, PNG, WEBP, and PDF files are allowed.');
+      setSelectedFile(null);
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setFileError('File size exceeds maximum allowed limit of 5 MB.');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  // File Input Handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processFile(e.target.files[0]);
+    }
+  };
 
   // Fetch reference data (Categories & Systems)
   useEffect(() => {
@@ -104,6 +135,10 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
       errors.description = 'Description must not exceed 2000 characters.';
     }
 
+    if (fileError) {
+      errors.file = fileError;
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -147,8 +182,36 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
         return;
       }
 
+      const createdTicketId = data.data.id;
+      const createdTicketNumber = data.data.ticketNumber;
+
+      // Upload attachment if selected (BR-24)
+      if (selectedFile && createdTicketId) {
+        try {
+          const formData = new FormData();
+          formData.append('file', selectedFile);
+
+          const attachRes = await fetch(`/api/tickets/${createdTicketId}/attachments`, {
+            method: 'POST',
+            headers: {
+              ...getAuthHeaders(),
+            },
+            body: formData,
+          });
+
+          if (!attachRes.ok) {
+            const attachErrData = await attachRes.json().catch(() => ({}));
+            console.warn('Attachment upload failed:', attachErrData);
+            setApiError(`Ticket ${createdTicketNumber} created, but file attachment upload failed: ${attachErrData.error?.message || 'Upload error'}`);
+          }
+        } catch (uploadErr) {
+          console.error('Attachment upload exception:', uploadErr);
+          setApiError(`Ticket ${createdTicketNumber} created, but file attachment upload encountered a network error.`);
+        }
+      }
+
       // Success
-      setSuccessTicketNumber(data.data.ticketNumber);
+      setSuccessTicketNumber(createdTicketNumber);
       setSubmitting(false);
 
       // Reset form fields
@@ -157,6 +220,8 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
       setSummary('');
       setRequestedPriority('MEDIUM');
       setDescription('');
+      setSelectedFile(null);
+      setFileError(null);
       setValidationErrors({});
     } catch (err: any) {
       console.error('Submission error:', err);
@@ -375,6 +440,107 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
             {validationErrors.description && (
               <div className="invalid-feedback d-block">{validationErrors.description}</div>
             )}
+          </div>
+
+          {/* Custom Attachments Dropzone UI */}
+          <div className="mb-4">
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <span className="fw-bold tracking-wider" style={{ color: '#006B3C', fontSize: '0.85rem', letterSpacing: '0.05em' }}>
+                ATTACHMENTS
+              </span>
+              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                · optional · up to 5 files · 5 MB each
+              </span>
+            </div>
+
+            <div
+              className="p-4 text-center rounded-3 position-relative"
+              style={{
+                borderStyle: 'dashed',
+                borderWidth: '2px',
+                borderColor: isDragging ? '#006B3C' : (fileError ? '#DC3545' : '#CBD5E1'),
+                backgroundColor: isDragging ? '#EAF6EF' : '#F8FAFC',
+                transition: 'all 0.2s ease-in-out',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!submitting) setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                if (!submitting && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                  processFile(e.dataTransfer.files[0]);
+                }
+              }}
+              onClick={() => {
+                if (!submitting) {
+                  document.getElementById('create-ticket-attachment')?.click();
+                }
+              }}
+            >
+              <input
+                type="file"
+                id="create-ticket-attachment"
+                className="d-none"
+                accept=".jpg,.jpeg,.png,.webp,.pdf"
+                onChange={handleFileChange}
+                disabled={submitting}
+              />
+
+              {!selectedFile ? (
+                <div>
+                  <div className="mb-2">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#006B3C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </div>
+                  <p className="mb-1 text-secondary" style={{ fontSize: '0.95rem' }}>
+                    Drag and drop files here, or{' '}
+                    <span className="fw-bold" style={{ color: '#006B3C', textDecoration: 'underline' }}>
+                      browse files
+                    </span>
+                  </p>
+                  <small className="text-muted d-block" style={{ fontSize: '0.8rem', letterSpacing: '0.04em' }}>
+                    JPG · PNG · WEBP · PDF
+                  </small>
+                </div>
+              ) : (
+                <div className="d-flex align-items-center justify-content-between p-2 px-3 bg-white border rounded shadow-sm">
+                  <div className="d-flex align-items-center gap-2 overflow-hidden">
+                    <span className="fs-5">📄</span>
+                    <div className="text-start text-truncate">
+                      <div className="fw-semibold text-dark text-truncate" style={{ fontSize: '0.9rem' }}>
+                        {selectedFile.name}
+                      </div>
+                      <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                      </small>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger border-0 ms-2"
+                    title="Remove file"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                      setFileError(null);
+                      const fileInput = document.getElementById('create-ticket-attachment') as HTMLInputElement;
+                      if (fileInput) fileInput.value = '';
+                    }}
+                  >
+                    ✖
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {fileError && <div className="text-danger small mt-2 fw-semibold">⚠️ {fileError}</div>}
           </div>
 
           {/* Submit Action Button */}
