@@ -455,10 +455,10 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
     const searchFilter = typeof search === 'string' && search.trim() ? search.trim().toLowerCase() : '';
     const filteredTickets = searchFilter
       ? allTickets.filter(
-          (t: any) =>
-            t.summary.toLowerCase().includes(searchFilter) ||
-            t.ticketNumber.toLowerCase().includes(searchFilter)
-        )
+        (t: any) =>
+          t.summary.toLowerCase().includes(searchFilter) ||
+          t.ticketNumber.toLowerCase().includes(searchFilter)
+      )
       : allTickets;
 
     const totalCount = filteredTickets.length;

@@ -50,6 +50,28 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  // File Validation Helper for Upload Modal
+  const processFile = (file: File) => {
+    setUploadError(null);
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError('Only JPG, PNG, WEBP, and PDF files are allowed.');
+      setSelectedFile(null);
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setUploadError('File size exceeds maximum allowed limit of 5 MB.');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
+  };
 
   // Soft Remove Attachment State
   const [removingAttachment, setRemovingAttachment] = useState<AttachmentItem | null>(null);
@@ -516,22 +538,106 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
                     </div>
                   )}
 
+                  {/* Custom Attachments Dropzone UI */}
                   <div className="mb-3">
-                    <label htmlFor="attachment-file-input" className="form-label fw-semibold small">Select File *</label>
-                    <input
-                      id="attachment-file-input"
-                      type="file"
-                      className="form-control"
-                      accept=".jpg,.jpeg,.png,.webp,.pdf"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setSelectedFile(e.target.files[0]);
-                          setUploadError(null);
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                      <span className="fw-bold tracking-wider" style={{ color: '#006B3C', fontSize: '0.85rem', letterSpacing: '0.05em' }}>
+                        ATTACHMENTS
+                      </span>
+                      <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                        · optional · up to 5 files · 5 MB each
+                      </span>
+                    </div>
+
+                    <div
+                      className="p-4 text-center rounded-3 position-relative"
+                      style={{
+                        borderStyle: 'dashed',
+                        borderWidth: '2px',
+                        borderColor: isDragging ? '#006B3C' : (uploadError ? '#DC3545' : '#CBD5E1'),
+                        backgroundColor: isDragging ? '#EAF6EF' : '#F8FAFC',
+                        transition: 'all 0.2s ease-in-out',
+                        cursor: uploading ? 'not-allowed' : 'pointer',
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (!uploading) setIsDragging(true);
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        if (!uploading && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          processFile(e.dataTransfer.files[0]);
                         }
                       }}
-                    />
-                    <div className="form-text extra-small mt-1 text-muted">
-                      Allowed types: JPG, PNG, WEBP, PDF (Maximum file size: 5 MB)
+                      onClick={() => {
+                        if (!uploading) {
+                          document.getElementById('attachment-file-input')?.click();
+                        }
+                      }}
+                    >
+                      <input
+                        id="attachment-file-input"
+                        type="file"
+                        className="d-none"
+                        accept=".jpg,.jpeg,.png,.webp,.pdf"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            processFile(e.target.files[0]);
+                          }
+                        }}
+                        disabled={uploading}
+                      />
+
+                      {!selectedFile ? (
+                        <div>
+                          <div className="mb-2">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#006B3C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="17 8 12 3 7 8" />
+                              <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                          </div>
+                          <p className="mb-1 text-secondary" style={{ fontSize: '0.95rem' }}>
+                            Drag and drop files here, or{' '}
+                            <span className="fw-bold" style={{ color: '#006B3C', textDecoration: 'underline' }}>
+                              browse files
+                            </span>
+                          </p>
+                          <small className="text-muted d-block" style={{ fontSize: '0.8rem', letterSpacing: '0.04em' }}>
+                            JPG · PNG · WEBP · PDF
+                          </small>
+                        </div>
+                      ) : (
+                        <div className="d-flex align-items-center justify-content-between p-2 px-3 bg-white border rounded shadow-sm">
+                          <div className="d-flex align-items-center gap-2 overflow-hidden">
+                            <span className="fs-5">📄</span>
+                            <div className="text-start text-truncate">
+                              <div className="fw-semibold text-dark text-truncate" style={{ fontSize: '0.9rem' }}>
+                                {selectedFile.name}
+                              </div>
+                              <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                              </small>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger border-0 ms-2"
+                            title="Remove file"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFile(null);
+                              setUploadError(null);
+                              const fileInput = document.getElementById('attachment-file-input') as HTMLInputElement;
+                              if (fileInput) fileInput.value = '';
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
