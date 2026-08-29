@@ -246,24 +246,40 @@ export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNaviga
       {/* Success Notification */}
       {successTicketNumber && (
         <div
-          className="alert alert-success d-flex align-items-center justify-content-between mb-4 p-3"
-          style={{ backgroundColor: '#EAF6EF', borderColor: '#BBE6CE', color: '#006B3C', borderRadius: '8px' }}
+          className="alert alert-success d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between mb-4 p-3 p-md-4 gap-3 shadow-sm border"
+          style={{ backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', color: '#15803D', borderRadius: '12px' }}
           role="alert"
         >
-          <div>
-            <h5 className="fw-bold mb-1">🎉 Ticket Created Successfully!</h5>
-            <p className="mb-0 fs-6">
-              Your ticket reference number is <strong>{successTicketNumber}</strong>. Status is set to{' '}
-              <span className="badge bg-success">NEW</span>.
-            </p>
+          <div className="d-flex align-items-start gap-3">
+            <div
+              className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+              style={{ width: '42px', height: '42px', backgroundColor: '#DCFCE7', color: '#15803D', fontSize: '1.25rem' }}
+            >
+              🎉
+            </div>
+            <div>
+              <h5 className="fw-bold mb-1" style={{ color: '#14532D', fontSize: '1.05rem' }}>
+                Ticket Created Successfully!
+              </h5>
+              <p className="mb-0 text-secondary" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
+                Your ticket reference number is{' '}
+                <span className="fw-bold text-dark" style={{ whiteSpace: 'nowrap' }}>
+                  {successTicketNumber}
+                </span>
+                . Status is set to{' '}
+                <span className="badge rounded-pill bg-success px-2.5 py-1 align-middle" style={{ fontSize: '0.72rem', fontWeight: 600 }}>
+                  NEW
+                </span>
+              </p>
+            </div>
           </div>
           {onNavigate && (
             <button
               onClick={() => onNavigate('my-tickets')}
-              className="btn btn-sm text-white fw-semibold ms-3"
-              style={{ backgroundColor: '#006B3C' }}
+              className="btn btn-sm text-white fw-semibold px-3 py-2 flex-shrink-0 align-self-stretch align-self-md-center ms-0 ms-md-2"
+              style={{ backgroundColor: '#15803D', borderRadius: '8px', whiteSpace: 'nowrap', fontSize: '0.875rem' }}
             >
-              View My Tickets →
+              View My Tickets &rarr;
             </button>
           )}
         </div>

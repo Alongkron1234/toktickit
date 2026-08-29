@@ -36,15 +36,15 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
   const captureResponsiveScreenshots = async (page: any, folder: string, baseName: string) => {
     // Desktop >= 992px
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.screenshot({ path: path.join(screenshotsBase, folder, `desktop-${baseName}.png`) });
+    await page.screenshot({ path: path.join(screenshotsBase, folder, `desktop-${baseName}.png`), fullPage: true });
 
     // Tablet 768 - 991px
     await page.setViewportSize({ width: 834, height: 1194 });
-    await page.screenshot({ path: path.join(screenshotsBase, folder, `tablet-${baseName}.png`) });
+    await page.screenshot({ path: path.join(screenshotsBase, folder, `tablet-${baseName}.png`), fullPage: true });
 
     // Mobile < 768px
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: path.join(screenshotsBase, folder, `mobile-${baseName}.png`) });
+    await page.screenshot({ path: path.join(screenshotsBase, folder, `mobile-${baseName}.png`), fullPage: true });
 
     // Reset back to Desktop for subsequent test actions
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -105,7 +105,7 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
   test('E2E-03: Attachment upload, soft removal, and blocked download flow with screenshots', async ({ page }) => {
     // 1. Open first ticket in My Tickets
     await expect(page.locator('table tbody tr, .card')).not.toHaveCount(0);
-    await page.click('table tbody tr:first-child td button, table tbody tr:first-child button, .card button');
+    await page.locator('button:has-text("TKT-"):visible').first().click();
     await expect(page.locator('.card-header').first()).toContainText(/Ticket|Attachments/i);
 
     // Capture Ticket Detail Read-only View Screen (Desktop, Tablet, Mobile)
