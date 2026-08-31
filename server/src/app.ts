@@ -99,11 +99,10 @@ export const requireRequesterHeader = async (
   }
 
   try {
-    const requester = await prisma.developmentRequester.findUnique({
-      where: { id: requesterId },
-    });
+    const reqRes = await pool.query('SELECT * FROM "DevelopmentRequester" WHERE id = $1', [requesterId]);
+    const row = reqRes.rows[0];
 
-    if (!requester || !requester.isActive) {
+    if (!row || !(row.isActive ?? row.isactive)) {
       res.status(403).json({
         success: false,
         error: {
@@ -113,6 +112,15 @@ export const requireRequesterHeader = async (
       });
       return;
     }
+
+    const requester = {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      isActive: row.isActive ?? row.isactive,
+      createdAt: row.createdAt ?? row.createdat,
+      updatedAt: row.updatedAt ?? row.updatedat,
+    };
 
     req.currentRequester = requester;
     next();
@@ -406,24 +414,51 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 10));
 
-    // Fetch all matching tickets for current requester
-    const allTickets = await prisma.ticket.findMany({
-      where: whereClause,
-      orderBy: { [sortField]: sortDirection },
-      include: {
-        category: { select: { id: true, name: true } },
-        relatedSystem: { select: { id: true, name: true } },
-      },
-    });
+    // Category Filter Number
+    const catIdNum = categoryId ? parseInt(categoryId as string, 10) : null;
+    const prioStr = requestedPriority && typeof requestedPriority === 'string' && requestedPriority.trim() ? requestedPriority.trim().toUpperCase() : null;
+
+    // Fetch all matching tickets for current requester using pool.query
+    const sql = `
+      SELECT 
+        t.*,
+        json_build_object('id', c.id, 'name', c.name) as category,
+        json_build_object('id', s.id, 'name', s.name) as "relatedSystem"
+      FROM "Ticket" t
+      LEFT JOIN "Category" c ON t."categoryId" = c.id
+      LEFT JOIN "RelatedSystem" s ON t."relatedSystemId" = s.id
+      WHERE t."requesterId" = $1
+      ${catIdNum ? `AND t."categoryId" = ${catIdNum}` : ''}
+      ${prioStr ? `AND t."requestedPriority" = '${prioStr}'` : ''}
+      ORDER BY t."${sortField}" ${sortDirection.toUpperCase()}
+    `;
+
+    const poolResult = await pool.query(sql, [req.currentRequester!.id]);
+    const allTickets = poolResult.rows.map((r: any) => ({
+      id: r.id,
+      ticketNumber: r.ticketNumber ?? r.ticketnumber,
+      requesterId: r.requesterId ?? r.requesterid,
+      categoryId: r.categoryId ?? r.categoryid,
+      relatedSystemId: r.relatedSystemId ?? r.relatedsystemid,
+      summary: r.summary,
+      description: r.description,
+      requestedPriority: r.requestedPriority ?? r.requestedpriority,
+      itPriority: r.itPriority ?? r.itpriority,
+      currentStatus: r.currentStatus ?? r.currentstatus,
+      createdAt: r.createdAt ?? r.createdat,
+      updatedAt: r.updatedAt ?? r.updatedat,
+      category: r.category,
+      relatedSystem: r.relatedSystem ?? r.relatedsystem,
+    }));
 
     // Case-Insensitive Search Filter in JS
     const searchFilter = typeof search === 'string' && search.trim() ? search.trim().toLowerCase() : '';
     const filteredTickets = searchFilter
       ? allTickets.filter(
-          (t) =>
-            t.summary.toLowerCase().includes(searchFilter) ||
-            t.ticketNumber.toLowerCase().includes(searchFilter)
-        )
+        (t: any) =>
+          t.summary.toLowerCase().includes(searchFilter) ||
+          t.ticketNumber.toLowerCase().includes(searchFilter)
+      )
       : allTickets;
 
     const totalCount = filteredTickets.length;
@@ -646,8 +681,9 @@ app.get('/api/attachments/:id/download', requireRequesterHeader, async (req: Aut
     return;
   }
 
+  const client = await pool.connect();
   try {
-    const dbRes = await pool.query(
+    const dbRes = await client.query(
       `SELECT a.*, t."requesterId" FROM "Attachment" a JOIN "Ticket" t ON a."ticketId" = t.id WHERE a.id = $1`,
       [attachmentId]
     );
@@ -707,6 +743,8 @@ app.get('/api/attachments/:id/download', requireRequesterHeader, async (req: Aut
       success: false,
       error: { code: 'DOWNLOAD_ERROR', message: 'Failed to download attachment file.' },
     });
+  } finally {
+    client.release();
   }
 });
 

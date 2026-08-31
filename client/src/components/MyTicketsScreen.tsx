@@ -134,23 +134,43 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
 
   // Priority pill — matches mockup exactly
   const getPriorityPill = (p: string): React.CSSProperties => {
-    const base: React.CSSProperties = { borderRadius: '20px', padding: '2px 14px', fontWeight: 600, fontSize: '0.78rem', display: 'inline-block' };
+    const base: React.CSSProperties = {
+      borderRadius: '20px',
+      padding: '4px 12px',
+      fontWeight: 600,
+      fontSize: '0.78rem',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      whiteSpace: 'nowrap',
+      lineHeight: '1.2',
+    };
     switch (p) {
       case 'CRITICAL':
       case 'HIGH':    return { ...base, backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA' };
       case 'MEDIUM':  return { ...base, backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A' };
       case 'LOW':     return { ...base, backgroundColor: '#DCFCE7', color: '#16A34A', border: '1px solid #BBF7D0' };
-      default:        return { ...base, backgroundColor: '#F3F4F6', color: '#6B7280' };
+      default:        return { ...base, backgroundColor: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' };
     }
   };
 
   // Status pill — matches mockup exactly
   const getStatusPill = (s: string): React.CSSProperties => {
-    const base: React.CSSProperties = { borderRadius: '20px', padding: '2px 14px', fontWeight: 600, fontSize: '0.78rem', display: 'inline-block' };
+    const base: React.CSSProperties = {
+      borderRadius: '20px',
+      padding: '4px 12px',
+      fontWeight: 600,
+      fontSize: '0.78rem',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      whiteSpace: 'nowrap',
+      lineHeight: '1.2',
+    };
     switch (s) {
       case 'NEW':         return { ...base, backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' };
-      case 'OPEN':        return { ...base, backgroundColor: '#DBEAFE', color: '#2563EB', border: '1px solid #93C5FD' };
-      case 'IN_PROGRESS': return { ...base, backgroundColor: '#D1FAE5', color: '#059669', border: '1px solid #6EE7B7' };
+      case 'OPEN':        return { ...base, backgroundColor: '#E0F2FE', color: '#0369A1', border: '1px solid #7DD3FC' };
+      case 'IN_PROGRESS': return { ...base, backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' };
       case 'RESOLVED':    return { ...base, backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' };
       case 'CLOSED':      return { ...base, backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1' };
       default:            return { ...base, backgroundColor: '#FEF9C3', color: '#CA8A04', border: '1px solid #FDE047' };
@@ -185,7 +205,7 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
 
   const isFilterActive = !!(searchTerm || selectedCategory || selectedReqPriority || selectedItPriority || selectedStatus);
 
-  const selectStyle: React.CSSProperties = { borderRadius: '8px', fontSize: '0.875rem', height: '38px', border: '1px solid #D1D5DB', paddingLeft: '12px', paddingRight: '28px', appearance: 'auto', cursor: 'pointer' };
+  const selectStyle: React.CSSProperties = { borderRadius: '8px', fontSize: '0.875rem', height: '38px', border: '1px solid #D1D5DB', paddingLeft: '12px', paddingRight: '32px', cursor: 'pointer' };
 
   return (
     <div className="container-fluid py-4 px-3 px-md-4" style={{ maxWidth: '1400px' }}>
@@ -355,96 +375,160 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
         </div>
 
       ) : (
-        <div className="card border-0 shadow-sm" style={{ borderRadius: '12px', overflow: 'hidden' }}>
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.855rem' }}>
-              <thead>
-                <tr>
-                  <th scope="col" className="py-3 ps-4"
-                    style={{ ...thStyle, cursor: 'pointer', whiteSpace: 'nowrap', minWidth: '160px' }}
-                    onClick={() => handleSortToggle('ticketNumber')}>
-                    Ticket No.{sortIcon('ticketNumber')}
-                  </th>
-                  <th scope="col" className="py-3"
-                    style={{ ...thStyle, cursor: 'pointer' }}
-                    onClick={() => handleSortToggle('createdAt')}>
-                    Created Date{sortIcon('createdAt')}
-                  </th>
-                  <th scope="col" className="py-3" style={thStyle}>Summary</th>
-                  <th scope="col" className="py-3" style={thStyle}>Category</th>
-                  <th scope="col" className="py-3 text-center" style={thStyle}>Requested Priority</th>
-                  <th scope="col" className="py-3 text-center" style={thStyle}>IT Priority</th>
-                  <th scope="col" className="py-3 text-center" style={thStyle}>Current Status</th>
-                  <th scope="col" className="py-3" style={thStyle}>Ticket Owner</th>
-                  <th scope="col" className="py-3 pe-4 text-end" style={{ ...thStyle, cursor: 'pointer' }}
-                    onClick={() => handleSortToggle('createdAt')}>
-                    Last Updated ↕
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {tickets.map((ticket) => (
-                  <tr key={ticket.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                    {/* Ticket No. */}
-                    <td className="ps-4 py-3" style={{ whiteSpace: 'nowrap' }}>
-                      {onSelectTicket ? (
-                        <button className="btn btn-link p-0 fw-semibold text-decoration-none"
-                          style={{ color: '#15803D', fontSize: '0.855rem', whiteSpace: 'nowrap' }}
-                          onClick={() => onSelectTicket(ticket.id)}>
-                          {ticket.ticketNumber}
-                        </button>
-                      ) : (
-                        <span className="fw-semibold" style={{ color: '#15803D', whiteSpace: 'nowrap' }}>{ticket.ticketNumber}</span>
-                      )}
-                    </td>
+        <>
+          {/* ── Mobile Cards View (< 768px) ── */}
+          <div className="d-block d-md-none mb-3">
+            {tickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className="card border-0 shadow-sm mb-3 p-3"
+                style={{ borderRadius: '12px', backgroundColor: '#FFFFFF' }}
+              >
+                {/* Header Row: Ticket Number & Date */}
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  {onSelectTicket ? (
+                    <button
+                      className="btn btn-link p-0 fw-bold text-decoration-none"
+                      style={{ color: '#15803D', fontSize: '0.9rem' }}
+                      onClick={() => onSelectTicket(ticket.id)}
+                    >
+                      {ticket.ticketNumber}
+                    </button>
+                  ) : (
+                    <span className="fw-bold" style={{ color: '#15803D', fontSize: '0.9rem' }}>
+                      {ticket.ticketNumber}
+                    </span>
+                  )}
+                  <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    {formatDate(ticket.createdAt)}
+                  </small>
+                </div>
 
-                    {/* Created Date */}
-                    <td className="py-3" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
-                      {formatDate(ticket.createdAt)}
-                    </td>
+                {/* Summary */}
+                <h6 className="fw-semibold text-dark mb-2" style={{ fontSize: '0.95rem', lineHeight: '1.4' }}>
+                  {ticket.summary}
+                </h6>
 
-                    {/* Summary */}
-                    <td className="py-3" style={{ maxWidth: 220 }}>
-                      <span className="text-dark text-truncate d-block">{ticket.summary}</span>
-                    </td>
+                {/* Badges Row */}
+                <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
+                  <span style={getPriorityPill(ticket.requestedPriority)}>
+                    {formatPriority(ticket.requestedPriority)}
+                  </span>
+                  <span style={getPriorityPill(ticket.itPriority)}>
+                    {formatPriority(ticket.itPriority)}
+                  </span>
+                  <span style={getStatusPill(ticket.currentStatus)}>
+                    {formatStatus(ticket.currentStatus)}
+                  </span>
+                </div>
 
-                    {/* Category */}
-                    <td className="py-3 text-dark">{ticket.category.name}</td>
+                {/* Footer Row: Category & Owner */}
+                <div className="pt-2 border-top d-flex align-items-center justify-content-between text-muted" style={{ fontSize: '0.78rem' }}>
+                  <div>
+                    <span>{ticket.category?.name}</span>
+                    <span className="mx-1">·</span>
+                    <span>{ticket.requester?.name || currentRequester?.name}</span>
+                  </div>
+                  <div>
+                    Updated {formatDate(ticket.updatedAt || ticket.createdAt)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-                    {/* Requested Priority */}
-                    <td className="py-3 text-center">
-                      <span style={getPriorityPill(ticket.requestedPriority)}>
-                        {formatPriority(ticket.requestedPriority)}
-                      </span>
-                    </td>
-
-                    {/* IT Priority */}
-                    <td className="py-3 text-center">
-                      <span style={getPriorityPill(ticket.itPriority)}>
-                        {formatPriority(ticket.itPriority)}
-                      </span>
-                    </td>
-
-                    {/* Current Status */}
-                    <td className="py-3 text-center">
-                      <span style={getStatusPill(ticket.currentStatus)}>
-                        {formatStatus(ticket.currentStatus)}
-                      </span>
-                    </td>
-
-                    {/* Ticket Owner */}
-                    <td className="py-3" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
-                      {ticket.requester?.name || currentRequester.name}
-                    </td>
-
-                    {/* Last Updated */}
-                    <td className="py-3 pe-4 text-end" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
-                      {formatDate(ticket.updatedAt || ticket.createdAt)}
-                    </td>
+          {/* ── Desktop Table View (>= 768px) ── */}
+          <div className="card border-0 shadow-sm d-none d-md-block" style={{ borderRadius: '12px', overflow: 'hidden' }}>
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.855rem' }}>
+                <thead>
+                  <tr>
+                    <th scope="col" className="py-3 ps-4"
+                      style={{ ...thStyle, cursor: 'pointer', whiteSpace: 'nowrap', minWidth: '160px' }}
+                      onClick={() => handleSortToggle('ticketNumber')}>
+                      Ticket No.{sortIcon('ticketNumber')}
+                    </th>
+                    <th scope="col" className="py-3"
+                      style={{ ...thStyle, cursor: 'pointer' }}
+                      onClick={() => handleSortToggle('createdAt')}>
+                      Created Date{sortIcon('createdAt')}
+                    </th>
+                    <th scope="col" className="py-3" style={thStyle}>Summary</th>
+                    <th scope="col" className="py-3" style={thStyle}>Category</th>
+                    <th scope="col" className="py-3 text-center" style={thStyle}>Requested Priority</th>
+                    <th scope="col" className="py-3 text-center" style={thStyle}>IT Priority</th>
+                    <th scope="col" className="py-3 text-center" style={thStyle}>Current Status</th>
+                    <th scope="col" className="py-3" style={thStyle}>Ticket Owner</th>
+                    <th scope="col" className="py-3 pe-4 text-end" style={{ ...thStyle, cursor: 'pointer' }}
+                      onClick={() => handleSortToggle('createdAt')}>
+                      Last Updated ↕
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {tickets.map((ticket) => (
+                    <tr key={ticket.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                      {/* Ticket No. */}
+                      <td className="ps-4 py-3" style={{ whiteSpace: 'nowrap' }}>
+                        {onSelectTicket ? (
+                          <button className="btn btn-link p-0 fw-semibold text-decoration-none"
+                            style={{ color: '#15803D', fontSize: '0.855rem', whiteSpace: 'nowrap' }}
+                            onClick={() => onSelectTicket(ticket.id)}>
+                            {ticket.ticketNumber}
+                          </button>
+                        ) : (
+                          <span className="fw-semibold" style={{ color: '#15803D', whiteSpace: 'nowrap' }}>{ticket.ticketNumber}</span>
+                        )}
+                      </td>
+
+                      {/* Created Date */}
+                      <td className="py-3" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
+                        {formatDate(ticket.createdAt)}
+                      </td>
+
+                      {/* Summary */}
+                      <td className="py-3" style={{ maxWidth: 220 }}>
+                        <span className="text-dark text-truncate d-block">{ticket.summary}</span>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3 text-dark">{ticket.category.name}</td>
+
+                      {/* Requested Priority */}
+                      <td className="py-3 text-center">
+                        <span style={getPriorityPill(ticket.requestedPriority)}>
+                          {formatPriority(ticket.requestedPriority)}
+                        </span>
+                      </td>
+
+                      {/* IT Priority */}
+                      <td className="py-3 text-center">
+                        <span style={getPriorityPill(ticket.itPriority)}>
+                          {formatPriority(ticket.itPriority)}
+                        </span>
+                      </td>
+
+                      {/* Current Status */}
+                      <td className="py-3 text-center">
+                        <span style={getStatusPill(ticket.currentStatus)}>
+                          {formatStatus(ticket.currentStatus)}
+                        </span>
+                      </td>
+
+                      {/* Ticket Owner */}
+                      <td className="py-3" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
+                        {ticket.requester?.name || currentRequester.name}
+                      </td>
+
+                      {/* Last Updated */}
+                      <td className="py-3 pe-4 text-end" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
+                        {formatDate(ticket.updatedAt || ticket.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* ── Pagination Footer ── */}
@@ -511,7 +595,7 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
               </ul>
             </nav>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

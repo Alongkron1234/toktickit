@@ -104,9 +104,9 @@ describe('My Tickets Screen UI Tests (Lab 2 - Issue 7)', () => {
 
     // Should display tickets table matching columns
     await waitFor(() => {
-      expect(screen.getByText('TKT-2026-000001')).toBeInTheDocument();
-      expect(screen.getByText('Cannot log in to VPN account')).toBeInTheDocument();
-      expect(screen.getByText('Laptop battery draining fast')).toBeInTheDocument();
+      expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('Cannot log in to VPN account')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('Laptop battery draining fast')[0]).toBeInTheDocument();
     });
 
     // Check header was sent with X-Dev-Requester-Id
@@ -135,7 +135,7 @@ describe('My Tickets Screen UI Tests (Lab 2 - Issue 7)', () => {
     renderWithContext(<MyTicketsScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('TKT-2026-000001')).toBeInTheDocument();
+      expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument();
     });
 
     // Type into Search box
@@ -188,7 +188,7 @@ describe('My Tickets Screen UI Tests (Lab 2 - Issue 7)', () => {
     renderWithContext(<MyTicketsScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('TKT-2026-000001')).toBeInTheDocument();
+      expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument();
     });
 
     // Click Next Page button
