@@ -32,8 +32,8 @@
 | `feature/ticket-create-ui` | https://github.com/Alongkron1234/toktickit/pull/24 | ตาม requirement จะต้องมีfolder artifacts ที่มี screenshot ของ Create Ticket UI ด้วยนะครับ ไม่ทราบว่าคุณ @Alongkron1234 จะทำใน issue นี้ หรือทำตอนท้ายหรอครับ | ตอบคำถามเพื่อนว่าทำรวดเดียวใน Issue9 เลย | Approved |
 | `feature/my-tickets-api` | https://github.com/Alongkron1234/toktickit/pull/25 | ผมสงสัยตรง นี้นิดนึง เนื่องจาก Issue ระบุไว้ว่า เป็นการค้นหาแบบ Case Insensitive แต่ contains เฉยๆ ถ้าผมเข้าใจไม่ผิด จะเป็น sensitive ยังไงรบกวนตรวจสอบในส่วนนี้ด้วยนะครับ | ได้ตอบกลับและแก้ตามที่เพื่อนบอกเรียบร้อยแล้ว | Approved |
 | `feature/my-tickets-ui` | https://github.com/Alongkron1234/toktickit/pull/26 | โดยรวมแล้วโค้ดชัดเจนและไร้ข้อสงสัยครับ ผ่านได้ลุยต่อเลย | ตรวจสอบความเรียบร้อย | Approved |
-| `feature/ticket-detail-and-attachments` | https://github.com/Alongkron1234/toktickit/pull/27 | ใน Backend (app.ts) มีการเช็คความยาวสูงสุดของเหตุผลที่ 200 ตัวอักษร แต่ใน Frontend ยังไม่ได้เช็คความยาวสูงสุด ถ้าผู้ใช้พิมพ์ยาวเกิน 200 ตัว Frontend จะไม่เตือน แต่จะยิง API ไปแล้วได้ Error กลับมาแทนรึเปล่าครับ | pdate file TicketDetailScreen.tsx เรียบร้อยครับ ผมเพิ่ม maxLength={200} เข้าไปในช่องกรอกข้อมูล | Approved |
-| `feature/e2e-and-responsive` | https://github.com/Alongkron1234/toktickit/pull/28 | Pending | Pending | Pending |
+| `feature/ticket-detail-and-attachments` | https://github.com/Alongkron1234/toktickit/pull/27 | ใน Backend (app.ts) มีการเช็คความยาวสูงสุดของเหตุผลที่ 200 ตัวอักษร แต่ใน Frontend ยังไม่ได้เช็คความยาวสูงสุด ถ้าผู้ใช้พิมพ์ยาวเกิน 200 ตัว Frontend จะไม่เตือน แต่จะยิง API ไปแล้วได้ Error กลับมาแทนรึเปล่าครับ | update file TicketDetailScreen.tsx เรียบร้อยครับ ผมเพิ่ม maxLength={200} เข้าไปในช่องกรอกข้อมูล | Approved |
+| `feature/e2e-and-responsive` | https://github.com/Alongkron1234/toktickit/pull/28 | ทุกอย่างดูครบถ้วนโอเคแล้วนะครับ ผ่านได้!! | ตรวจเช็คความเรียบร้อย | Approved |
 | `lab2-staging` -> `main` | Pending | Pending | Pending | Pending |
 
 ---
