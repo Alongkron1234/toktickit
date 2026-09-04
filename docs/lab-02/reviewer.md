@@ -7,10 +7,20 @@
 
 ---
 
-## 1. My Peer Reviewers Details
-- **First Reviewer Name:** Atiwit Thongngoen (Student ID: 67070501048, GitHub: https://github.com/atiwit)
-- **Second Reviewer Name:** Napatsun Kasemweerasan (Student ID: 67070501014, GitHub: https://github.com/napatsun)
-- **Third Reviewer Name:** Krittaphat Panyasomphan (Student ID: 67070501052, GitHub: https://github.com/krittaphato3)
+## 1. My First Peer Reviewer Details
+- **Reviewer Name:** Atiwit Thongngoen
+- **Student ID:** 67070501048
+- **GitHub Username:** atiwit (https://github.com/atiwit)
+
+## 2. My Second Peer Reviewer Details
+- **Reviewer Name:** Napatsun Kasemweerasan
+- **Student ID:** 67070501014
+- **GitHub Username:** napatsun (https://github.com/napatsun)
+
+## 3. My Third Peer Reviewer Details
+- **Reviewer Name:** Krittaphat Panyasomphan
+- **Student ID:** 67070501052
+- **GitHub Username:** krittaphato3 (https://github.com/krittaphato3)
 
 ### Pull Requests Submitted by Me
 | PR Title / Feature Branch | PR Link | Peer Review Comment | My Response / Action | Approval Status |
@@ -22,27 +32,35 @@
 | `feature/ticket-create-ui` | https://github.com/Alongkron1234/toktickit/pull/24 | ตาม requirement จะต้องมีfolder artifacts ที่มี screenshot ของ Create Ticket UI ด้วยนะครับ ไม่ทราบว่าคุณ @Alongkron1234 จะทำใน issue นี้ หรือทำตอนท้ายหรอครับ | ตอบคำถามเพื่อนว่าทำรวดเดียวใน Issue9 เลย | Approved |
 | `feature/my-tickets-api` | https://github.com/Alongkron1234/toktickit/pull/25 | ผมสงสัยตรง นี้นิดนึง เนื่องจาก Issue ระบุไว้ว่า เป็นการค้นหาแบบ Case Insensitive แต่ contains เฉยๆ ถ้าผมเข้าใจไม่ผิด จะเป็น sensitive ยังไงรบกวนตรวจสอบในส่วนนี้ด้วยนะครับ | ได้ตอบกลับและแก้ตามที่เพื่อนบอกเรียบร้อยแล้ว | Approved |
 | `feature/my-tickets-ui` | https://github.com/Alongkron1234/toktickit/pull/26 | โดยรวมแล้วโค้ดชัดเจนและไร้ข้อสงสัยครับ ผ่านได้ลุยต่อเลย | ตรวจสอบความเรียบร้อย | Approved |
-| `feature/ticket-detail-and-attachments` | https://github.com/Alongkron1234/toktickit/pull/27 | ใน Backend (app.ts) มีการเช็คความยาวสูงสุดของเหตุผลที่ 200 ตัวอักษร แต่ใน Frontend ยังไม่ได้เช็คความยาวสูงสุด ถ้าผู้ใช้พิมพ์ยาวเกิน 200 ตัว Frontend จะไม่เตือน แต่จะยิง API ไปแล้วได้ Error กลับมาแทนรึเปล่าครับ | update file TicketDetailScreen.tsx เรียบร้อยครับ ผมเพิ่ม maxLength={200} เข้าไปในช่องกรอกข้อมูล | Approved |
-| `feature/e2e-and-responsive` | https://github.com/Alongkron1234/toktickit/pull/28 | ทดสอบรัน E2E แล้วผ่านครบถ้วน รูปภาพ responsive 3 ขนาดใน artifacts ถูกต้องสมบูรณ์ดีครับ | ขอบคุณสำหรับการตรวจสอบครับ | Approved |
-| `lab2-staging` -> `main` | https://github.com/Alongkron1234/toktickit/pull/29 | รวมฟีเจอร์ Lab 2 ทั้งหมดสมบูรณ์พร้อม Merge เข้า main ครับ | ดำเนินการ Merge เข้า main เรียบร้อย | Approved |
+| `feature/ticket-detail-and-attachments` | https://github.com/Alongkron1234/toktickit/pull/27 | ใน Backend (app.ts) มีการเช็คความยาวสูงสุดของเหตุผลที่ 200 ตัวอักษร แต่ใน Frontend ยังไม่ได้เช็คความยาวสูงสุด ถ้าผู้ใช้พิมพ์ยาวเกิน 200 ตัว Frontend จะไม่เตือน แต่จะยิง API ไปแล้วได้ Error กลับมาแทนรึเปล่าครับ | pdate file TicketDetailScreen.tsx เรียบร้อยครับ ผมเพิ่ม maxLength={200} เข้าไปในช่องกรอกข้อมูล | Approved |
+| `feature/e2e-and-responsive` | https://github.com/Alongkron1234/toktickit/pull/28 | Pending | Pending | Pending |
+| `lab2-staging` -> `main` | Pending | Pending | Pending | Pending |
 
 ---
 
 ## 2. Peer I Reviewed Details
+### First Peer
 - **Peer Name:** Atiwit Thongngoen
 - **Student ID:** 67070501048
 - **GitHub Username:** atiwit (https://github.com/atiwit)
 
+### Second Peer
+- **Peer Name:** Napatsun Kasemweerasan
+- **Student ID:** 67070501014
+- **GitHub Username:** napatsun (https://github.com/napatsun)
+
+### Third Peer
+- **Peer Name:** Krittaphat Panyasomphan
+- **Student ID:** 67070501052
+- **GitHub Username:** krittaphato3 (https://github.com/krittaphato3)
+
 ### Pull Requests Reviewed by Me (Submitted by Peer)
 | PR Title / Feature Branch | Peer PR Link | My Review Comment | Peer Response / Action | Approval Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `feature/spec-and-test-plan` | https://github.com/atiwit/toktickit/pull/1 | ตรวจสอบเอกสาร Specification และ Test Plan แล้วครอบคลุมดีครับ แนะนำให้เพิ่มกรณีทดสอบ Unselected Guard ชัดเจนขึ้น | ปรับปรุงเพิ่มกรณีทดสอบ Unselected Guard ในเอกสารเรียบร้อยครับ | Approved |
-| `feature/db-schema-and-seed` | https://github.com/atiwit/toktickit/pull/2 | โครงสร้าง Prisma Schema ออกแบบถูกต้อง และ Seed Script ทำงานแบบ Idempotent ได้ดีมากครับ | ขอบคุณสำหรับการรีวิวครับ | Approved |
-| `feature/dev-requester-context` | https://github.com/atiwit/toktickit/pull/3 | การทำ State Management และ Header Guard ทำงานสลับตัวตนได้ราบรื่นดีครับ | ขอบคุณครับ | Approved |
-| `feature/ticket-create-api` | https://github.com/atiwit/toktickit/pull/4 | โค้ด REST API สร้างตั๋วและเจนเลขตั๋ว TKT-YYYY-XXXXXX ทำงานถูกต้องและมี Unit Tests ครบถ้วน | ขอบคุณสำหรับการตรวจสอบครับ | Approved |
-| `feature/ticket-create-ui` | https://github.com/atiwit/toktickit/pull/5 | หน้าฟอร์มสร้างตั๋วสวยงาม และมี Client-side Validation ครบถ้วนตามดีไซน์ Zen Green ครับ | ขอบคุณครับ | Approved |
-| `feature/my-tickets-api` | https://github.com/atiwit/toktickit/pull/6 | API ค้นหาและกรองข้อมูลค้นหาแบบ Case-Insensitive ได้ถูกต้องเรียบร้อยดีครับ | ขอบคุณครับ | Approved |
-| `feature/my-tickets-ui` | https://github.com/atiwit/toktickit/pull/7 | หน้า My Tickets รองรับการแสดงผล Responsive แบบ Mobile Cards และ Desktop Table ได้ดีมากครับ | ขอบคุณสำหรับการรีวิวครับ | Approved |
-| `feature/ticket-detail-and-attachments` | https://github.com/atiwit/toktickit/pull/8 | ระบบแนบไฟล์และ Soft Removal บันทึกเหตุผลการลบและบล็อกการดาวน์โหลดไฟล์ที่ถูกลบได้ถูกต้องปลอดภัย | ปรับปรุง UI เพิ่มเติมตามคำแนะนำเรียบร้อยครับ | Approved |
-| `feature/e2e-and-responsive` | https://github.com/atiwit/toktickit/pull/9 | ชุดทดสอบ E2E รันผ่านหมด และแคปรูป Responsive ครบทั้ง 3 ขนาดหน้าจอ สวยงามมากครับ | ขอบคุณสำหรับการรีวิวครับ | Approved |
-| `lab2-staging` -> `main` | https://github.com/atiwit/toktickit/pull/10 | รวมฟีเจอร์ Lab 2 เข้า main สมบูรณ์แบบ พร้อมสำหรับการส่งงาน | Merge เข้า main เรียบร้อยครับ | Approved |
+| `feat/lab2-specs` | https://github.com/krittaphato3/TokTickIT/pull/20 | เหมือนจะลืม review.md กับ ai_use.md หรือป่าว | เพื่อนเพิ่ม review.md กับ ai_use.md เรียบร้อย | Approved |
+| `feat/lab2-db-schema` | https://github.com/atiwit/toktickit/pull/21 | จาก ticket ที่ทำ จาก Many to Many น่าจะเป็น 1-Many นะ รบกวนเช็คอีกทีนะครับ | เพื่อนแก้ความสัมพันธ์ของตาราง | Approved |
+| `feat/lab2-requester-context` | https://github.com/krittaphato3/TokTickIT/pull/24 | ตรวจเช็คแล้วไฟล์โอเคครยถ้วนดีครับ แต่อยากเห็นผลการ test เพิ่มเติมจะดีมากครับ | เพื่อนส่งรูปภาพที่เห็นผลการรันผ่านชันเจน | Approved |
+| `feat/lab2-create-ticket-api` | https://github.com/krittaphato3/TokTickIT/pull/25 | จากที่ผมดูโค้ดการทำงานทุกอย่างโอเค แต่ว่ามีตรงขื่อไฟล์ tickets.test.ts ที่อาจจะไม่ตรงกับชื่อไฟล์ใน Requirement ที่ได้รับมานะครับ รบกวนเช็คตรงส่วนนี้อีกทีนะ | เพื่อนได้ทำการแก้ไขตามที่บอกเรียบร้อย | Approved |
+| `feat/lab2-create-ticket-ui` | https://github.com/krittaphato3/TokTickIT/pull/26 | มีรายละเอียด UX/UI ครบถ้วน พำวก accessibility , responsive ทุก breakpoint และ interaction states ต่าง ๆ ชัดเจนดีครับ Approved ครับผม | ขอบคุณครับ | Approved |
+| `feat/lab2-my-tickets-api` | https://github.com/atiwit/toktickit/pull/22 | ตรงระบบ Search ตามข้อกำหนดที่ให้มา AC-08 (BR-07) รบกวนเช็คใน ticket.service.ts นิดนึงครับว่า keyword ก่อนส่งไปทำ ILIKE/ มีการ escape อักขระพิเศษของ SQL เช่น %, _ และ \ ไว้เรียบร้อยแล้วรึป่าว ผมลองไล่หาๆแล้วไม่เจอครับ| เพื่อนมีโค้ดสำหรับ escape อักขระพิเศษของ SQL ไว้แล้วเป็นผมที่หาไม่เจอเอง | Approved |
+| `feature/lab2-ui-implement` | https://github.com/atiwit/toktickit/pull/31 | ในไฟล์รูปนี้อะครับ artifacts/lab-02/screenshots/my-tickets/desktop.png ผมไม่แน่ใจว่ามันเป็นการแสดงผลซ้ำซ้อนมั้ยครับผมดูข้อมูลเหมือนกันแต่ว่าอันบนเป็นการแสดงแบบ table แต่อันล่างเป็นการแสดงแบบเป็นบล็อคๆ ฝากเช็คตรนี้อีกทีนะครับ | เพื่อนได้เห็นข้อผิดพลาดตามที่บอกและได้ทำการแก้ไขเรียบร้อยแล้ว | Approved |
