@@ -4,7 +4,7 @@
 
 ---
 
-## 📋 Selected Key Prompts by Issue
+##  Selected Key Prompts by Issue
 
 | Issue / Feature | Prompt Name | Actual Prompt Text Summary | My Reflection |
 | :--- | :--- | :--- | :--- |
@@ -21,7 +21,7 @@
 
 ---
 
-## 🧠 AI Reflection & Technical Learnings
+##  AI Reflection & Technical Learnings
 
 ### 1. การทำงานร่วมกับ AI ในรูปแบบ Pair Programming
 การใช้ AI (Google Antigravity / Gemini) ช่วยยกระดับความเร็วในการพัฒนาโปรเจกต์ได้อย่างมหาศาล โดยเฉพาะงานที่ต้องทำซ้ำๆ หรือการวางโครงสร้าง (Boilerplate) เช่น การสร้าง REST API endpoints, การเขียน Data Validation schema, การกำหนด CSS Tokens ตามธีม Zen Green และการเขียนชุดทดสอบทั้ง Unit Test และ E2E Test
@@ -34,6 +34,10 @@
 ### 3. ประโยชน์ของการทดสอบแบบอัตโนมัติ (Automated Verification)
 การให้ AI ช่วยสร้างชุดทดสอบด้วย Vitest (10/10 tests passed) และ Playwright E2E tests ช่วยให้มั่นใจว่าเมื่อมีการแก้ไขดีไซน์ Responsive หน้าจอหรือปรับแต่งสไตล์ โค้ดส่วนอื่นจะไม่พัง (No Regression Errors) และสามารถสร้างรูปภาพหลักฐานส่งแล็ปได้โดยอัตโนมัติ
 
+### 4. ปัญหาที่ผมพบสำหรับการใช้ AI ทำ Lab นี้
+บางครั้งผมลืมรัน Database Server (PostgreSQL) ไว้ แล้วผท prompt คำสั่งให้ AI แล้วเกิดข้อผิดพลาดในการเชื่อมต่อ (Connection Error / `ECONNREFUSED`) ซึ่งในบางครั้ง AI จะพยายามแก้ปัญหาโดยการพยายามแก้ไฟล์ `.env` หรือเปลี่ยนพอร์ตไปมา แทนที่จะเตือนให้เปิดรันบริการ Database Server ให้เรียบร้อยก่อน ทำให้ผมต้องมานั่งแก้อยู่หลายครั้งเลยครับ
+
 ---
 
-**บทสรุป:** การใช้ AI ไม่ใช่การให้ AI ทำงานแทนทั้งหมด แต่เป็นการใช้งาน AI เป็นผู้ช่วยคิด วางโครงสร้าง และตรวจสอบโค้ด โดยมีเราเป็นผู้ควบคุมทิศทาง (Human-in-the-loop) เพื่อให้ได้ซอฟต์แวร์ที่มีคุณภาพและตรงตามความต้องการมากที่สุด 🚀
+
+**บทสรุป:** การใช้ AI ไม่ใช่การให้ AI ทำงานแทนทั้งหมด แต่เป็นการใช้งาน AI เป็นคนช่วยคิด ช่วยวางโครงสร้าง และช่วยตรวจสอบโค้ด โดยมีเราเป็นคนควบคุม
