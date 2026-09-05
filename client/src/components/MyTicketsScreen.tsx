@@ -253,11 +253,11 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
 
       {/* ── Filter Bar Card (matches mockup layout) ── */}
       <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
-        <div className="card-body py-3 px-4">
-          <div className="d-flex flex-wrap align-items-end gap-3">
+        <div className="card-body py-3 px-3">
+          <div className="row g-2 align-items-end">
 
-            {/* Search */}
-            <div style={{ flex: '1 1 220px', minWidth: '200px' }}>
+            {/* Search — full width on tablet, flex-grow on desktop */}
+            <div className="col-12 col-lg">
               <div className="input-group" style={{ height: '38px' }}>
                 <span className="input-group-text bg-white border-end-0 pe-1" style={{ borderRadius: '8px 0 0 8px', border: '1px solid #D1D5DB' }}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="#9CA3AF" viewBox="0 0 16 16">
@@ -271,26 +271,26 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
                   placeholder="Search by ticket number or summary..."
                   value={searchTerm}
                   onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                  style={{ borderRadius: '0 8px 8px 0', fontSize: '0.875rem', border: '1px solid #D1D5DB', height: '38px' }}
+                  style={{ borderRadius: '0 8px 8px 0', fontSize: '0.82rem', border: '1px solid #D1D5DB', height: '38px' }}
                 />
               </div>
             </div>
 
-            {/* Category */}
-            <div style={{ flex: '0 0 auto' }}>
-              <label htmlFor="ticket-category-select" className="d-block text-muted mb-1" style={{ fontSize: '0.78rem', fontWeight: 500 }}>Category</label>
+            {/* Category — 25% on tablet, auto on desktop */}
+            <div className="col-6 col-md-3 col-lg-auto">
+              <label htmlFor="ticket-category-select" className="d-block text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>Category</label>
               <select id="ticket-category-select" className="form-select" value={selectedCategory}
-                onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }} style={selectStyle}>
+                onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }} style={{ ...selectStyle, fontSize: '0.82rem', height: '38px', width: '100%' }}>
                 <option value="">All Categories</option>
                 {categories.map((c) => <option key={c.id} value={c.id.toString()}>{c.name}</option>)}
               </select>
             </div>
 
-            {/* Requested Priority */}
-            <div style={{ flex: '0 0 auto' }}>
-              <label htmlFor="ticket-priority-select" className="d-block text-muted mb-1" style={{ fontSize: '0.78rem', fontWeight: 500 }}>Requested Priority</label>
+            {/* Requested Priority — 25% on tablet, auto on desktop */}
+            <div className="col-6 col-md-3 col-lg-auto">
+              <label htmlFor="ticket-priority-select" className="d-block text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>Requested Priority</label>
               <select id="ticket-priority-select" className="form-select" value={selectedReqPriority}
-                onChange={(e) => { setSelectedReqPriority(e.target.value); setPage(1); }} style={selectStyle}>
+                onChange={(e) => { setSelectedReqPriority(e.target.value); setPage(1); }} style={{ ...selectStyle, fontSize: '0.82rem', height: '38px', width: '100%' }}>
                 <option value="">All Priorities</option>
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -299,11 +299,11 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
               </select>
             </div>
 
-            {/* IT Priority */}
-            <div style={{ flex: '0 0 auto' }}>
-              <label htmlFor="ticket-it-priority-select" className="d-block text-muted mb-1" style={{ fontSize: '0.78rem', fontWeight: 500 }}>IT Priority</label>
+            {/* IT Priority — 25% on tablet, auto on desktop */}
+            <div className="col-6 col-md-3 col-lg-auto">
+              <label htmlFor="ticket-it-priority-select" className="d-block text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>IT Priority</label>
               <select id="ticket-it-priority-select" className="form-select" value={selectedItPriority}
-                onChange={(e) => { setSelectedItPriority(e.target.value); setPage(1); }} style={selectStyle}>
+                onChange={(e) => { setSelectedItPriority(e.target.value); setPage(1); }} style={{ ...selectStyle, fontSize: '0.82rem', height: '38px', width: '100%' }}>
                 <option value="">All Priorities</option>
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -312,11 +312,11 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
               </select>
             </div>
 
-            {/* Current Status */}
-            <div style={{ flex: '0 0 auto' }}>
-              <label htmlFor="ticket-status-select" className="d-block text-muted mb-1" style={{ fontSize: '0.78rem', fontWeight: 500 }}>Current Status</label>
+            {/* Current Status — 25% on tablet, auto on desktop */}
+            <div className="col-6 col-md-3 col-lg-auto">
+              <label htmlFor="ticket-status-select" className="d-block text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>Current Status</label>
               <select id="ticket-status-select" className="form-select" value={selectedStatus}
-                onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }} style={selectStyle}>
+                onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }} style={{ ...selectStyle, fontSize: '0.82rem', height: '38px', width: '100%' }}>
                 <option value="">All Statuses</option>
                 <option value="NEW">New</option>
                 <option value="OPEN">Open</option>
@@ -437,29 +437,46 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
             ))}
           </div>
 
-          {/* ── Desktop Table View (>= 768px) ── */}
+          {/* ── Desktop & Tablet Table View (>= 768px) ── */}
           <div className="card border-0 shadow-sm d-none d-md-block" style={{ borderRadius: '12px', overflow: 'hidden' }}>
             <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.855rem' }}>
+              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
                 <thead>
                   <tr>
-                    <th scope="col" className="py-3 ps-4"
-                      style={{ ...thStyle, cursor: 'pointer', whiteSpace: 'nowrap', minWidth: '160px' }}
+                    {/* Ticket No. (Visible Desktop & Tablet) */}
+                    <th scope="col" className="py-3 ps-3"
+                      style={{ ...thStyle, cursor: 'pointer', whiteSpace: 'nowrap' }}
                       onClick={() => handleSortToggle('ticketNumber')}>
                       Ticket No.{sortIcon('ticketNumber')}
                     </th>
-                    <th scope="col" className="py-3"
-                      style={{ ...thStyle, cursor: 'pointer' }}
+
+                    {/* Created Date (Desktop >=992px) */}
+                    <th scope="col" className="py-3 px-2 d-none d-lg-table-cell"
+                      style={{ ...thStyle, cursor: 'pointer', whiteSpace: 'nowrap' }}
                       onClick={() => handleSortToggle('createdAt')}>
                       Created Date{sortIcon('createdAt')}
                     </th>
-                    <th scope="col" className="py-3" style={thStyle}>Summary</th>
-                    <th scope="col" className="py-3" style={thStyle}>Category</th>
-                    <th scope="col" className="py-3 text-center" style={thStyle}>Requested Priority</th>
-                    <th scope="col" className="py-3 text-center" style={thStyle}>IT Priority</th>
-                    <th scope="col" className="py-3 text-center" style={thStyle}>Current Status</th>
-                    <th scope="col" className="py-3" style={thStyle}>Ticket Owner</th>
-                    <th scope="col" className="py-3 pe-4 text-end" style={{ ...thStyle, cursor: 'pointer' }}
+
+                    {/* Summary (Visible Desktop & Tablet) */}
+                    <th scope="col" className="py-3 px-2" style={thStyle}>Summary</th>
+
+                    {/* Category (Desktop >=992px) */}
+                    <th scope="col" className="py-3 px-2 d-none d-lg-table-cell" style={{ ...thStyle, whiteSpace: 'nowrap' }}>Category</th>
+
+                    {/* Requested Priority (Desktop >=992px) */}
+                    <th scope="col" className="py-3 px-2 text-center d-none d-lg-table-cell" style={{ ...thStyle, whiteSpace: 'nowrap' }}>Requested Priority</th>
+
+                    {/* IT Priority (Desktop >=992px) */}
+                    <th scope="col" className="py-3 px-2 text-center d-none d-lg-table-cell" style={{ ...thStyle, whiteSpace: 'nowrap' }}>IT Priority</th>
+
+                    {/* Current Status (Visible Desktop & Tablet) */}
+                    <th scope="col" className="py-3 px-2 text-center" style={{ ...thStyle, whiteSpace: 'nowrap' }}>Current Status</th>
+
+                    {/* Ticket Owner (Desktop >=992px) */}
+                    <th scope="col" className="py-3 px-2 d-none d-lg-table-cell" style={{ ...thStyle, whiteSpace: 'nowrap' }}>Ticket Owner</th>
+
+                    {/* Last Updated (Visible Desktop & Tablet) */}
+                    <th scope="col" className="py-3 pe-4 text-end" style={{ ...thStyle, cursor: 'pointer', whiteSpace: 'nowrap' }}
                       onClick={() => handleSortToggle('createdAt')}>
                       Last Updated ↕
                     </th>
@@ -469,59 +486,59 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
                   {tickets.map((ticket) => (
                     <tr key={ticket.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                       {/* Ticket No. */}
-                      <td className="ps-4 py-3" style={{ whiteSpace: 'nowrap' }}>
+                      <td className="ps-3 py-3" style={{ whiteSpace: 'nowrap' }}>
                         {onSelectTicket ? (
-                          <button className="btn btn-link p-0 fw-semibold text-decoration-none"
-                            style={{ color: '#15803D', fontSize: '0.855rem', whiteSpace: 'nowrap' }}
+                          <button className="btn btn-link p-0 fw-bold text-decoration-none"
+                            style={{ color: '#006B3C', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
                             onClick={() => onSelectTicket(ticket.id)}>
                             {ticket.ticketNumber}
                           </button>
                         ) : (
-                          <span className="fw-semibold" style={{ color: '#15803D', whiteSpace: 'nowrap' }}>{ticket.ticketNumber}</span>
+                          <span className="fw-bold" style={{ color: '#006B3C', whiteSpace: 'nowrap' }}>{ticket.ticketNumber}</span>
                         )}
                       </td>
 
-                      {/* Created Date */}
-                      <td className="py-3" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
+                      {/* Created Date (Desktop >=992px) */}
+                      <td className="py-3 px-2 d-none d-lg-table-cell" style={{ color: '#4A6358', whiteSpace: 'nowrap' }}>
                         {formatDate(ticket.createdAt)}
                       </td>
 
                       {/* Summary */}
-                      <td className="py-3" style={{ maxWidth: 220 }}>
-                        <span className="text-dark text-truncate d-block">{ticket.summary}</span>
+                      <td className="py-3 px-2" style={{ maxWidth: '200px' }}>
+                        <span className="fw-medium text-dark text-truncate d-block">{ticket.summary}</span>
                       </td>
 
-                      {/* Category */}
-                      <td className="py-3 text-dark">{ticket.category.name}</td>
+                      {/* Category (Desktop >=992px) */}
+                      <td className="py-3 px-2 d-none d-lg-table-cell" style={{ color: '#1A2E26', whiteSpace: 'nowrap' }}>{ticket.category?.name}</td>
 
-                      {/* Requested Priority */}
-                      <td className="py-3 text-center">
+                      {/* Requested Priority (Desktop >=992px) */}
+                      <td className="py-3 px-2 text-center d-none d-lg-table-cell">
                         <span style={getPriorityPill(ticket.requestedPriority)}>
                           {formatPriority(ticket.requestedPriority)}
                         </span>
                       </td>
 
-                      {/* IT Priority */}
-                      <td className="py-3 text-center">
+                      {/* IT Priority (Desktop >=992px) */}
+                      <td className="py-3 px-2 text-center d-none d-lg-table-cell">
                         <span style={getPriorityPill(ticket.itPriority)}>
                           {formatPriority(ticket.itPriority)}
                         </span>
                       </td>
 
                       {/* Current Status */}
-                      <td className="py-3 text-center">
+                      <td className="py-3 px-2 text-center">
                         <span style={getStatusPill(ticket.currentStatus)}>
                           {formatStatus(ticket.currentStatus)}
                         </span>
                       </td>
 
-                      {/* Ticket Owner */}
-                      <td className="py-3" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
-                        {ticket.requester?.name || currentRequester.name}
+                      {/* Ticket Owner (Desktop >=992px) */}
+                      <td className="py-3 px-2 d-none d-lg-table-cell" style={{ color: '#4A6358', whiteSpace: 'nowrap' }}>
+                        {ticket.requester?.name || currentRequester?.name}
                       </td>
 
                       {/* Last Updated */}
-                      <td className="py-3 pe-4 text-end" style={{ color: '#4B5563', whiteSpace: 'nowrap' }}>
+                      <td className="py-3 pe-4 text-end" style={{ color: '#4A6358', whiteSpace: 'nowrap' }}>
                         {formatDate(ticket.updatedAt || ticket.createdAt)}
                       </td>
                     </tr>

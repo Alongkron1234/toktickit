@@ -34,20 +34,23 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
 
   // Helper function to capture screenshots across 3 required viewports (Desktop, Tablet, Mobile)
   const captureResponsiveScreenshots = async (page: any, folder: string, baseName: string) => {
-    // Desktop >= 992px
-    await page.setViewportSize({ width: 1280, height: 800 });
+    // Desktop >= 992px (1440px gives enough room for all 9 table columns)
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(screenshotsBase, folder, `desktop-${baseName}.png`), fullPage: true });
 
     // Tablet 768 - 991px
     await page.setViewportSize({ width: 834, height: 1194 });
+    await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(screenshotsBase, folder, `tablet-${baseName}.png`), fullPage: true });
 
     // Mobile < 768px
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(screenshotsBase, folder, `mobile-${baseName}.png`), fullPage: true });
 
     // Reset back to Desktop for subsequent test actions
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setViewportSize({ width: 1440, height: 900 });
   };
 
   test('E2E-01: Full Create Ticket flow and save responsive screenshots', async ({ page }) => {
@@ -115,7 +118,27 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
     const addAttachBtn = page.locator('button:has-text("Add Attachment"), button:has-text("Upload")');
     if (await addAttachBtn.isVisible().catch(() => false)) {
       await addAttachBtn.click();
-      await captureResponsiveScreenshots(page, 'ticket-detail', 'upload-modal');
+      await page.waitForTimeout(500);
+
+      // Capture full viewport with modal overlay (matches actual browser view)
+      // Desktop
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: path.join(screenshotsBase, 'ticket-detail', 'desktop-upload-modal.png') });
+
+      // Tablet
+      await page.setViewportSize({ width: 834, height: 1194 });
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: path.join(screenshotsBase, 'ticket-detail', 'tablet-upload-modal.png') });
+
+      // Mobile
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: path.join(screenshotsBase, 'ticket-detail', 'mobile-upload-modal.png') });
+
+      // Reset to Desktop
+      await page.setViewportSize({ width: 1440, height: 900 });
+
       await page.click('.modal-header .btn-close, button:has-text("Cancel")');
     }
   });
