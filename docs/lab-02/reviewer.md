@@ -35,7 +35,7 @@
 | `feature/ticket-detail-and-attachments` | https://github.com/Alongkron1234/toktickit/pull/27 | ใน Backend (app.ts) มีการเช็คความยาวสูงสุดของเหตุผลที่ 200 ตัวอักษร แต่ใน Frontend ยังไม่ได้เช็คความยาวสูงสุด ถ้าผู้ใช้พิมพ์ยาวเกิน 200 ตัว Frontend จะไม่เตือน แต่จะยิง API ไปแล้วได้ Error กลับมาแทนรึเปล่าครับ | update file TicketDetailScreen.tsx เรียบร้อยครับ ผมเพิ่ม maxLength={200} เข้าไปในช่องกรอกข้อมูล | Approved |
 | `feature/e2e-and-responsive` | https://github.com/Alongkron1234/toktickit/pull/28 | ทุกอย่างดูครบถ้วนโอเคแล้วนะครับ ผ่านได้!! | ตรวจเช็คความเรียบร้อย | Approved |
 | `fix/tablet-desktop-responsive` | https://github.com/Alongkron1234/toktickit/pull/32 | เห็นว่ามีการ Update README ด้วย แต่ไม่เห็นใน PR Issue เลยว่ามีการอัพเดท README รบกวนใส่ เพื่ออ้างอิงด้วยนะครับ แต่ในส่วนฟังก์ชั่นต่างครบถ้วนและถุกต้องดีแล้วครับ รวมทั้งการแก้ไขรูปภาพ ก็สมบูรณ์ดีัครับ | เพิ่มรายละเอียดเข้าไปใน PR ตามที่เพื่อนบอกเรียบร้อยแล้วครับ | Approved |
-| `lab2-staging` -> `main` | Pending | Pending | Pending | Pending |
+| `lab2-staging` -> `main` | https://github.com/Alongkron1234/toktickit/pull/31 | รบกวนตรวจสอบหน้า ui อีกรอบนะครับ ตรงเเสดงผลเเต่ละ row ของเเต่ละ ticket เเสดงผลไม่เต็มเเถวยังเป็นเเบบต้องเลื่อนดู | ได้ทำการกลับไปมสร้าง branch สำหรับการปรับหน้า UI และได้ทำการแก้ไขเรียบร้อยตามที่เพื่อนบอก | Approved |
 
 ---
 
