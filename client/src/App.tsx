@@ -1,103 +1,72 @@
-import { useState } from 'react'
+import React, { useState } from 'react';
+import { RequesterProvider, useRequester } from './context/RequesterContext';
+import { RequesterSelectionScreen } from './components/RequesterSelectionScreen';
+import { Header } from './components/Header';
+import { CreateTicketScreen } from './components/CreateTicketScreen';
+import { MyTicketsScreen } from './components/MyTicketsScreen';
+import { TicketDetailScreen } from './components/TicketDetailScreen';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './App.css';
 
-interface Category {
-  id: number
-  name: string
-}
+const MainAppContent: React.FC = () => {
+  const { currentRequester } = useRequester();
+  const [activeNav, setActiveNav] = useState<'my-tickets' | 'create-ticket'>('my-tickets');
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
-function App() {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'online' | 'offline'>('idle')
-  const [categories, setCategories] = useState<Category[]>([])
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-
-  const checkSystem = async () => {
-    setStatus('loading')
-    setErrorMsg(null)
-    setCategories([])
-
-    try {
-      const [healthRes, categoriesRes] = await Promise.all([
-        fetch('/api/health'),
-        fetch('/api/categories'),
-      ])
-
-      if (!healthRes.ok || !categoriesRes.ok) {
-        throw new Error('Unable to connect to TokTickIT API')
-      }
-
-      const healthData = await healthRes.json()
-      const categoriesData: Category[] = await categoriesRes.json()
-
-      if (healthData.status === 'ok' && Array.isArray(categoriesData)) {
-        setCategories(categoriesData)
-        setStatus('online')
-      } else {
-        setStatus('offline')
-        setErrorMsg('Unable to connect to TokTickIT API')
-      }
-    } catch {
-      setStatus('offline')
-      setErrorMsg('Unable to connect to TokTickIT API')
-    }
+  // Unselected Guard: Redirect/render Requester Selection Screen if no requester selected
+  if (!currentRequester) {
+    return <RequesterSelectionScreen />;
   }
 
   return (
-    <div className="container py-5">
-      <div className="card shadow-sm mx-auto" style={{ maxWidth: '600px' }}>
-        <div className="card-body p-4">
-          <h1 className="h3 mb-4 text-center text-primary">TokTickIT IT Service Desk</h1>
-          
-          <div className="d-grid mb-4">
-            <button
-              type="button"
-              className="btn btn-primary btn-lg"
-              onClick={checkSystem}
-              disabled={status === 'loading'}
-            >
-              {status === 'loading' ? 'loading...' : 'Check System'}
-            </button>
-          </div>
+    <div className="min-vh-100 d-flex flex-column" style={{ backgroundColor: '#F5F7F6' }}>
+      <Header
+        activeNav={activeNav}
+        onNavigate={(nav) => {
+          setActiveNav(nav);
+          setSelectedTicketId(null);
+        }}
+      />
 
-          {status === 'loading' && (
-            <div className="text-center py-3">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <p className="mt-2 text-muted">loading...</p>
-            </div>
-          )}
+      <main className="container-fluid px-3 px-md-5 py-4 flex-grow-1">
+        {activeNav === 'my-tickets' && (
+          selectedTicketId ? (
+            <TicketDetailScreen
+              ticketId={selectedTicketId}
+              onBack={() => setSelectedTicketId(null)}
+            />
+          ) : (
+            <MyTicketsScreen
+              onNavigateToCreate={() => {
+                setSelectedTicketId(null);
+                setActiveNav('create-ticket');
+              }}
+              onSelectTicket={(ticketId) => {
+                setSelectedTicketId(ticketId);
+              }}
+            />
+          )
+        )}
 
-          {status === 'online' && (
-            <div>
-              <div className="alert alert-success mt-3" role="alert">
-                <h4 className="alert-heading h5 mb-0">System Status: Online</h4>
-              </div>
-
-              {categories.length > 0 && (
-                <div className="mt-4">
-                  <h5 className="h6 fw-bold mb-3 text-secondary">Supported Request Categories:</h5>
-                  <ol className="list-group list-group-numbered">
-                    {categories.map((cat) => (
-                      <li key={cat.id} className="list-group-item">
-                        {cat.name}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-            </div>
-          )}
-
-          {status === 'offline' && (
-            <div className="alert alert-danger mt-3" role="alert">
-              <h4 className="alert-heading h5 mb-2">System Status: Offline</h4>
-              <p className="mb-0">{errorMsg || 'Unable to connect to TokTickIT API'}</p>
-            </div>
-          )}
-        </div>
-      </div>
+        {activeNav === 'create-ticket' && (
+          <CreateTicketScreen
+            onNavigate={(nav) => {
+              setSelectedTicketId(null);
+              setActiveNav(nav);
+            }}
+          />
+        )}
+      </main>
     </div>
-  )
-}
+  );
+};
 
-export default App
+export const App: React.FC = () => {
+  return (
+    <RequesterProvider>
+      <MainAppContent />
+    </RequesterProvider>
+  );
+};
+
+export default App;

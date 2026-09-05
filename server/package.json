@@ -5,22 +5,34 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:dev": "prisma dev --port 51218",
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@types/uuid": "^10.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "pg": "^8.23.0",
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.1.2",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
+    "prisma": "^7.10.0",
     "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.8",
