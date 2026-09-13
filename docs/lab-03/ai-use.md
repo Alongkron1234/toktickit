@@ -9,7 +9,7 @@
 | Issue / Feature | Prompt Name | Actual Prompt Text Summary | My Reflection |
 | :--- | :--- | :--- | :--- |
 | **Issue 1** | Requirement Analysis & Engineering Spec Drafting | "ช่วยวิเคราะห์โจทย์แล็ป 3 และวางแผนจัดทำเอกสาร specification.md, ui-spec.md, api-spec.md, tests.md ตามหลัก Spec-Driven Development" | ได้เอกสารข้อตกลงทางวิศวกรรมที่ชัดเจนก่อนเริ่มเขียนโค้ด ทำให้ทุกทีมมีความเข้าใจตรงกันเกี่ยวกับ Acceptance Criteria, Business Rules, Authorization Matrix และ Admin Safety Rules |
-| **Issue 2** | | | |
+| **Issue 2** | Database Migration, User Model & Authentication Foundation | "จาก Issue2 ช่วยอัปเดต schema.prisma สำหรับโมเดล User (Role, passwordHash, requiresPasswordChange), PublicComment, InternalNote พร้อมทำ seed.ts สำหรับ 3 Roles และ Auth REST APIs + Login/Password Change UI" | AI ช่วยย้ายโครงสร้าง DB มาเป็น User Model พร้อม Hash รหัสผ่านด้วย bcryptjs, พัฒนา Auth APIs, LoginScreen, ChangePasswordScreen และผ่านชุดทดสอบแบบอัตโนมัติ 100% |
 | **Issue 3** | | | |
 | **Issue 4** | | | |
 | **Issue 5** | | | |

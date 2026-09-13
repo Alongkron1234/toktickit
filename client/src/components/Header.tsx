@@ -1,13 +1,26 @@
 import React from 'react';
-import { useRequester } from '../context/RequesterContext';
+import { useAuth, UserRole } from '../context/AuthContext';
 
 interface HeaderProps {
-  activeNav: 'my-tickets' | 'create-ticket' | 'ticket-detail';
-  onNavigate: (view: 'my-tickets' | 'create-ticket') => void;
+  activeNav: 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
+  onNavigate: (view: 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
-  const { currentRequester, clearRequester } = useRequester();
+  const { user, logout } = useAuth();
+
+  const getRoleBadgeStyle = (role: UserRole) => {
+    switch (role) {
+      case 'REQUESTER':
+        return { backgroundColor: '#EEF2FF', color: '#4F46E5', label: 'Requester' };
+      case 'IT_STAFF':
+        return { backgroundColor: '#CCFBF1', color: '#0D9488', label: 'IT Staff' };
+      case 'ADMINISTRATOR':
+        return { backgroundColor: '#FEF3C7', color: '#D97706', label: 'Administrator' };
+      default:
+        return { backgroundColor: '#E2E8F0', color: '#475569', label: role };
+    }
+  };
 
   return (
     <header className="shadow-sm" style={{ backgroundColor: '#006B3C', color: '#FFFFFF' }}>
@@ -22,59 +35,106 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
             <span className="fs-4 fw-bold">TokTickIT</span>
           </div>
 
-          <nav className="d-flex gap-2">
-            <button
-              onClick={() => onNavigate('my-tickets')}
-              className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
-                activeNav === 'my-tickets' ? 'text-white' : 'text-white-50'
-              }`}
-              style={{
-                backgroundColor: activeNav === 'my-tickets' ? '#0B7A46' : 'transparent',
-                borderRadius: '6px',
-              }}
-            >
-              📄 My Tickets
-            </button>
-            <button
-              onClick={() => onNavigate('create-ticket')}
-              className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
-                activeNav === 'create-ticket' ? 'text-white' : 'text-white-50'
-              }`}
-              style={{
-                backgroundColor: activeNav === 'create-ticket' ? '#0B7A46' : 'transparent',
-                borderRadius: '6px',
-              }}
-            >
-              ➕ Create Ticket
-            </button>
-          </nav>
+          {user && (
+            <nav className="d-flex gap-2">
+              {/* Requester Navigation */}
+              {user.role === 'REQUESTER' && (
+                <>
+                  <button
+                    onClick={() => onNavigate('my-tickets')}
+                    className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
+                      activeNav === 'my-tickets' ? 'text-white' : 'text-white-50'
+                    }`}
+                    style={{
+                      backgroundColor: activeNav === 'my-tickets' ? '#0B7A46' : 'transparent',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    📄 My Tickets
+                  </button>
+                  <button
+                    onClick={() => onNavigate('create-ticket')}
+                    className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
+                      activeNav === 'create-ticket' ? 'text-white' : 'text-white-50'
+                    }`}
+                    style={{
+                      backgroundColor: activeNav === 'create-ticket' ? '#0B7A46' : 'transparent',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    ➕ Create Ticket
+                  </button>
+                </>
+              )}
+
+              {/* IT Staff & Admin Navigation */}
+              {(user.role === 'IT_STAFF' || user.role === 'ADMINISTRATOR') && (
+                <button
+                  onClick={() => onNavigate('staff-queue')}
+                  className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
+                    activeNav === 'staff-queue' ? 'text-white' : 'text-white-50'
+                  }`}
+                  style={{
+                    backgroundColor: activeNav === 'staff-queue' ? '#0B7A46' : 'transparent',
+                    borderRadius: '6px',
+                  }}
+                >
+                  📋 Ticket Queue
+                </button>
+              )}
+
+              {/* Administrator Navigation */}
+              {user.role === 'ADMINISTRATOR' && (
+                <button
+                  onClick={() => onNavigate('user-management')}
+                  className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
+                    activeNav === 'user-management' ? 'text-white' : 'text-white-50'
+                  }`}
+                  style={{
+                    backgroundColor: activeNav === 'user-management' ? '#0B7A46' : 'transparent',
+                    borderRadius: '6px',
+                  }}
+                >
+                  👥 User Management
+                </button>
+              )}
+            </nav>
+          )}
         </div>
 
-        {/* Right Side: Active User Identity & Change Requester */}
-        {currentRequester && (
+        {/* Right Side: Authenticated User Identity & Logout */}
+        {user && (
           <div className="d-flex align-items-center gap-3">
             <div className="d-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-1 rounded-pill">
               <span
                 className="rounded-circle d-inline-flex align-items-center justify-content-center text-white fw-bold"
                 style={{ width: '28px', height: '28px', backgroundColor: '#0B7A46', fontSize: '0.85rem' }}
               >
-                {currentRequester.name.charAt(0)}
+                {user.name.charAt(0)}
               </span>
               <div className="d-flex flex-column text-start lh-1">
-                <span className="fw-semibold text-white fs-6">{currentRequester.name}</span>
-                <span className="text-white-50" style={{ fontSize: '0.75rem' }}>
-                  Requester Context
+                <span className="fw-semibold text-white fs-6">{user.name}</span>
+                <span
+                  className="badge px-2 py-1 fw-bold mt-1 text-center"
+                  style={{
+                    fontSize: '0.65rem',
+                    backgroundColor: getRoleBadgeStyle(user.role).backgroundColor,
+                    color: getRoleBadgeStyle(user.role).color,
+                    borderRadius: '10px',
+                  }}
+                >
+                  {getRoleBadgeStyle(user.role).label}
                 </span>
               </div>
             </div>
 
             <button
-              onClick={clearRequester}
+              onClick={logout}
               className="btn btn-outline-light btn-sm fw-semibold px-2 py-1"
               style={{ borderRadius: '6px', fontSize: '0.8rem' }}
-              title="Switch Development Requester"
+              title="Sign Out"
             >
-              🔄 Change Requester
+              🚪 Logout
             </button>
           </div>
         )}

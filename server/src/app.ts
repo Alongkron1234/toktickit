@@ -9,14 +9,25 @@ dotenv.config();
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Priority, TicketStatus } from '../generated/prisma/client';
+import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 export const prisma = new PrismaClient({ adapter });
+
+import {
+  requireAuth,
+  requireRole,
+  comparePassword,
+  hashPassword,
+  generateToken,
+  validatePasswordComplexity,
+  AuthenticatedRequest
+} from './auth';
 
 const uploadsDir = path.resolve(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -54,8 +65,10 @@ export const upload = multer({
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
+
 
 // Extended Express Request interface with currentRequester
 export interface AuthenticatedRequest extends Request {
@@ -99,7 +112,7 @@ export const requireRequesterHeader = async (
   }
 
   try {
-    const reqRes = await pool.query('SELECT * FROM "DevelopmentRequester" WHERE id = $1', [requesterId]);
+    const reqRes = await pool.query('SELECT * FROM "User" WHERE id = $1', [requesterId]);
     const row = reqRes.rows[0];
 
     if (!row || !(row.isActive ?? row.isactive)) {
@@ -107,7 +120,7 @@ export const requireRequesterHeader = async (
         success: false,
         error: {
           code: 'INACTIVE_OR_NOT_FOUND',
-          message: 'Selected Development Requester is invalid or inactive.',
+          message: 'Selected Requester is invalid or inactive.',
         },
       });
       return;
@@ -141,31 +154,29 @@ async function generateUniqueTicketNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `TKT-${year}-`;
 
-  const latestTicket = await prisma.ticket.findFirst({
+  const latestTickets = await prisma.ticket.findMany({
     where: {
       ticketNumber: {
         startsWith: prefix,
       },
-    },
-    orderBy: {
-      id: 'desc',
     },
     select: {
       ticketNumber: true,
     },
   });
 
-  let nextSequence = 1;
-  if (latestTicket && latestTicket.ticketNumber) {
-    const parts = latestTicket.ticketNumber.split('-');
+  let maxSequence = 0;
+  for (const t of latestTickets) {
+    const parts = t.ticketNumber.split('-');
     if (parts.length === 3) {
-      const lastSeq = parseInt(parts[2], 10);
-      if (!isNaN(lastSeq)) {
-        nextSequence = lastSeq + 1;
+      const seq = parseInt(parts[2], 10);
+      if (!isNaN(seq) && seq > maxSequence) {
+        maxSequence = seq;
       }
     }
   }
 
+  const nextSequence = maxSequence + 1;
   const paddedSequence = nextSequence.toString().padStart(6, '0');
   return `${prefix}${paddedSequence}`;
 }
@@ -178,11 +189,212 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// GET /api/requesters - Active Development Requesters list
+// ==========================================
+// AUTHENTICATION ENDPOINTS (LAB 3)
+// ==========================================
+
+// POST /api/auth/login - Authenticate with Email & Password
+app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Email and password are required.',
+        },
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid email address or password.',
+        },
+      });
+      return;
+    }
+
+    // Check account active state
+    if (!user.isActive) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_DISABLED',
+          message: 'Account is disabled. Please contact IT support.',
+        },
+      });
+      return;
+    }
+
+    // Compare password
+    const isPasswordValid = comparePassword(password, user.passwordHash);
+    if (!isPasswordValid) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid email address or password.',
+        },
+      });
+      return;
+    }
+
+    const userPayload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      requiresPasswordChange: user.requiresPasswordChange,
+    };
+
+    const token = generateToken(userPayload);
+
+    // Set HTTP-Only session cookie
+    res.cookie('session_token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        token,
+        user: userPayload,
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Internal server error during login.',
+      },
+    });
+  }
+});
+
+// POST /api/auth/logout - Invalidate Session
+app.post('/api/auth/logout', (_req: Request, res: Response) => {
+  res.clearCookie('session_token');
+  res.status(200).json({
+    success: true,
+    data: {
+      message: 'Logged out successfully',
+    },
+  });
+});
+
+// GET /api/auth/me - Retrieve Current Authenticated User Profile
+app.get('/api/auth/me', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      user: req.user,
+    },
+  });
+});
+
+// POST /api/auth/change-password - Mandatory First-Login Password Change
+app.post('/api/auth/change-password', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required.' },
+      });
+      return;
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'All password fields are required.' },
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'PASSWORDS_DO_NOT_MATCH', message: 'New password and confirmation password do not match.' },
+      });
+      return;
+    }
+
+    const complexity = validatePasswordComplexity(newPassword);
+    if (!complexity.isValid) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'WEAK_PASSWORD', message: complexity.message },
+      });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!dbUser) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User not found.' },
+      });
+      return;
+    }
+
+    const isCurrentValid = comparePassword(currentPassword, dbUser.passwordHash);
+    if (!isCurrentValid) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_CURRENT_PASSWORD', message: 'Current password is incorrect.' },
+      });
+      return;
+    }
+
+    const newPasswordHash = hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: newPasswordHash,
+        requiresPasswordChange: false,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Password changed successfully.',
+      },
+    });
+  } catch (error) {
+    console.error('Password change error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Internal server error changing password.' },
+    });
+  }
+});
+
+// GET /api/requesters - Active Requesters list (Updated for Lab 3)
 app.get('/api/requesters', async (_req, res) => {
   try {
-    const requesters = await prisma.developmentRequester.findMany({
-      where: { isActive: true },
+    const requesters = await prisma.user.findMany({
+      where: { role: Role.REQUESTER, isActive: true },
       select: {
         id: true,
         name: true,
@@ -202,7 +414,7 @@ app.get('/api/requesters', async (_req, res) => {
       success: false,
       error: {
         code: 'FETCH_ERROR',
-        message: 'Failed to fetch active development requesters.',
+        message: 'Failed to fetch active requesters.',
       },
     });
   }
@@ -830,5 +1042,6 @@ app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: Aut
   }
 });
 
+export { app };
 export default app;
 

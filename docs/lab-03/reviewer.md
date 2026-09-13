@@ -25,7 +25,7 @@
 ### Pull Requests Submitted by Me
 | PR Title / Feature Branch | PR Link | Peer Review Comment | My Response / Action | Approval Status |
 | :--- | :--- | :--- | :--- | :--- |
-| | | | | |
+| `feat/lab-03-spec-contract` | https://github.com/Alongkron1234/toktickit/pull/42 | Specification และ api specs, test, ui-specs เขียนได้ดีมากครับ | ตรวจสอบความเรียบร้อยของเอกสารและเตรียมพร้อมสำหรับการเริ่มทำ Issue 2 | Approved |
 
 ---
 

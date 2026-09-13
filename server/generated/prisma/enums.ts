@@ -9,6 +9,15 @@
 * 🟢 You can import this file directly.
 */
 
+export const Role = {
+  REQUESTER: 'REQUESTER',
+  IT_STAFF: 'IT_STAFF',
+  ADMINISTRATOR: 'ADMINISTRATOR'
+} as const
+
+export type Role = (typeof Role)[keyof typeof Role]
+
+
 export const Priority = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
@@ -23,8 +32,11 @@ export const TicketStatus = {
   NEW: 'NEW',
   OPEN: 'OPEN',
   IN_PROGRESS: 'IN_PROGRESS',
+  WAITING_FOR_REQUESTER: 'WAITING_FOR_REQUESTER',
   RESOLVED: 'RESOLVED',
-  CLOSED: 'CLOSED'
+  CLOSED: 'CLOSED',
+  REOPENED: 'REOPENED',
+  CANCELLED: 'CANCELLED'
 } as const
 
 export type TicketStatus = (typeof TicketStatus)[keyof typeof TicketStatus]

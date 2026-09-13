@@ -7,8 +7,8 @@ describe('UI Tests for Lab 1 (TokTickIT UI - Legacy)', () => {
     vi.restoreAllMocks();
   });
 
-  it('UI-01: TokTickIT application brand heading renders in Lab 2 shell', () => {
+  it('UI-01: TokTickIT application brand heading renders in Lab 3 shell', () => {
     render(<App />);
-    expect(screen.getByText(/TokTickIT/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/TokTickIT/i).length).toBeGreaterThan(0);
   });
 });
