@@ -82,7 +82,10 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
   }, []);
 
   const fetchTickets = useCallback(async () => {
-    if (!currentRequester) return;
+    if (!currentRequester) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 

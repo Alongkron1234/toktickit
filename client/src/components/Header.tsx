@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth, UserRole } from '../context/AuthContext';
+import { useAuth, type UserRole } from '../context/AuthContext';
 
 interface HeaderProps {
   activeNav: 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
