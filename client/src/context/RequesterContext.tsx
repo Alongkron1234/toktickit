@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 
 export interface Requester {
   id: number;
@@ -23,10 +24,20 @@ export const RequesterContext = createContext<RequesterContextType | undefined>(
 const LOCAL_STORAGE_KEY = 'toktickit_selected_requester_id';
 
 export const RequesterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user, token } = useAuth();
   const [currentRequester, setCurrentRequester] = useState<Requester | null>(null);
   const [requesters, setRequesters] = useState<Requester[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const activeRequester: Requester | null = user
+    ? {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isActive: user.isActive,
+      }
+    : currentRequester;
 
   const fetchRequesters = async () => {
     setLoading(true);
@@ -76,16 +87,21 @@ export const RequesterProvider: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   const getAuthHeaders = (): Record<string, string> => {
-    if (!currentRequester) return {};
-    return {
-      'X-Dev-Requester-Id': currentRequester.id.toString(),
+    const target = activeRequester;
+    if (!target) return {};
+    const headers: Record<string, string> = {
+      'X-Dev-Requester-Id': target.id.toString(),
     };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
   };
 
   return (
     <RequesterContext.Provider
       value={{
-        currentRequester,
+        currentRequester: activeRequester,
         requesters,
         loading,
         error,

@@ -9,6 +9,15 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
   });
 
   const setupSelectedRequester = async () => {
+    localStorage.setItem('toktickit_user', JSON.stringify({
+      id: 1,
+      name: 'Jennifer Anderson',
+      email: 'jennifer.anderson@example.com',
+      role: 'REQUESTER',
+      isActive: true,
+      requiresPasswordChange: false,
+    }));
+    localStorage.setItem('toktickit_token', 'mock_test_token');
     vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
       const urlStr = typeof url === 'string' ? url : (url as Request).url;
       const method = init?.method || 'GET';
@@ -80,16 +89,12 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
 
     render(<App />);
 
-    // Select Requester
+    // Wait for AuthContext loading to finish & Header to render
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
-    });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '1' } });
-    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
-
-    // Wait for Header to render
+      expect(screen.getByText(/Jennifer Anderson/i)).toBeInTheDocument();
+    }, { timeout: 3000 });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Change Requester/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
     });
   };
 
@@ -119,20 +124,22 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
 
     render(<App />);
 
-    // Unselected Guard
+    localStorage.setItem('toktickit_user', JSON.stringify({
+      id: 1,
+      name: 'Jennifer Anderson',
+      email: 'jennifer.anderson@example.com',
+      role: 'REQUESTER',
+      isActive: true,
+      requiresPasswordChange: false,
+    }));
+
+    render(<App />);
+
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Select Development Requester/i })).toBeInTheDocument();
+      expect(screen.getByText(/Jennifer Anderson/i)).toBeInTheDocument();
     });
-
-    const selectControl = screen.getByRole('combobox', { name: /Development Requester/i });
-    expect(selectControl).toBeInTheDocument();
-
-    fireEvent.change(selectControl, { target: { value: '1' } });
-    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
-
     await waitFor(() => {
-      expect(screen.getAllByText(/Jennifer Anderson/i).length).toBeGreaterThan(0);
-      expect(screen.getByRole('button', { name: /Change Requester/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
     });
   });
 

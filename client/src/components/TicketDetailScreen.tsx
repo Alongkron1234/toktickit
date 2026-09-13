@@ -81,7 +81,10 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
 
   // Fetch Ticket Detail
   const fetchTicketDetail = useCallback(async () => {
-    if (!currentRequester) return;
+    if (!currentRequester) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
