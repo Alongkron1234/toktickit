@@ -7,6 +7,7 @@ import { Header } from './components/Header';
 import { CreateTicketScreen } from './components/CreateTicketScreen';
 import { MyTicketsScreen } from './components/MyTicketsScreen';
 import { TicketDetailScreen } from './components/TicketDetailScreen';
+import { StaffTicketQueue } from './components/StaffTicketQueue';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -91,12 +92,25 @@ const MainAppContent: React.FC = () => {
           </>
         )}
 
-        {/* IT Staff Views Placeholder (Issue 4 & Issue 5) */}
+        {/* IT Staff Views (Issue 4: Queue; Issue 5: full Ticket Detail operations) */}
         {(activeUser.role === 'IT_STAFF' || activeUser.role === 'ADMINISTRATOR') && activeNav === 'staff-queue' && (
-          <div className="card border-0 shadow-sm p-4 text-center">
-            <h4 className="fw-bold text-secondary">📋 IT Staff Ticket Queue</h4>
-            <p className="text-muted">The operational IT Staff Ticket Queue screen will be integrated in Issue 4 & Issue 5.</p>
-          </div>
+          selectedTicketId ? (
+            <div className="card border-0 shadow-sm p-4">
+              <button
+                className="btn btn-sm btn-outline-secondary mb-3"
+                style={{ width: 'fit-content' }}
+                onClick={() => setSelectedTicketId(null)}
+              >
+                &lt; Back to Queue
+              </button>
+              <h4 className="fw-bold text-secondary">📋 Ticket #{selectedTicketId}</h4>
+              <p className="text-muted mb-0">
+                Claim/reassign ownership, IT Priority, status workflow, Public Comments, and Internal Notes will be integrated in Issue 5.
+              </p>
+            </div>
+          ) : (
+            <StaffTicketQueue onSelectTicket={(ticketId) => setSelectedTicketId(ticketId)} />
+          )
         )}
 
         {/* Administrator Views Placeholder (Issue 6) */}

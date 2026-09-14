@@ -83,6 +83,8 @@ async function main() {
         name: uData.name,
         role: uData.role,
         isActive: uData.isActive,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+        requiresPasswordChange: uData.requiresPasswordChange,
       },
       create: {
         ...uData,
