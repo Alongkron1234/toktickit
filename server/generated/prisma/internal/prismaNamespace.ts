@@ -1027,6 +1027,7 @@ export const TicketScalarFieldEnum = {
   requestedPriority: 'requestedPriority',
   itPriority: 'itPriority',
   currentStatus: 'currentStatus',
+  appearsResolvedAt: 'appearsResolvedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

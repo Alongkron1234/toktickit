@@ -24,13 +24,27 @@ export interface TicketDetailData {
   description: string;
   requestedPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   itPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  currentStatus: 'NEW' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  currentStatus: 'NEW' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REOPENED';
+  appearsResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   category: { id: number; name: string };
   relatedSystem: { id: number; name: string };
   requester: { id: number; name: string; email: string };
   attachments: AttachmentItem[];
+}
+
+export interface PublicComment {
+  id: number;
+  ticketId: number;
+  authorId: number;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: number;
+    name: string;
+    role?: string;
+  };
 }
 
 export interface TicketDetailScreenProps {
@@ -44,6 +58,18 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
   const [ticket, setTicket] = useState<TicketDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Comments State
+  const [comments, setComments] = useState<PublicComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [appearsResolvedCheck, setAppearsResolvedCheck] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  // Ticket Reopen State
+  const [reopening, setReopening] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
 
   // Upload Attachment State
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -79,6 +105,33 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
+  // Fetch Public Comments
+  const fetchComments = useCallback(async () => {
+    if (!currentRequester) return;
+
+    setCommentsLoading(true);
+    try {
+      const response = await fetch(`/api/tickets/${ticketId}/comments`, {
+        headers: {
+          'X-Dev-Requester-Id': currentRequester.id.toString(),
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success && Array.isArray(result.data)) {
+        setComments(result.data);
+      } else {
+        setComments([]);
+      }
+    } catch (err) {
+      console.error('Error fetching public comments:', err);
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [ticketId, currentRequester]);
+
   // Fetch Ticket Detail
   const fetchTicketDetail = useCallback(async () => {
     if (!currentRequester) {
@@ -103,13 +156,14 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
       }
 
       setTicket(result.data);
+      fetchComments();
     } catch (err: any) {
       console.error('Error fetching ticket detail:', err);
       setError(err.message || 'Unable to load ticket details.');
     } finally {
       setLoading(false);
     }
-  }, [ticketId, currentRequester]);
+  }, [ticketId, currentRequester, fetchComments]);
 
   useEffect(() => {
     fetchTicketDetail();
@@ -230,6 +284,79 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     }
   };
 
+  // Post Comment Handler
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRequester || !newCommentText.trim()) return;
+
+    setSubmittingComment(true);
+    setCommentError(null);
+
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dev-Requester-Id': currentRequester.id.toString(),
+        },
+        body: JSON.stringify({
+          body: newCommentText.trim(),
+          appearsResolved: appearsResolvedCheck,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error?.message || 'Failed to post comment.');
+      }
+
+      setNewCommentText('');
+      setAppearsResolvedCheck(false);
+      await fetchComments();
+      await fetchTicketDetail();
+    } catch (err: any) {
+      console.error('Error posting comment:', err);
+      setCommentError(err.message || 'Failed to post comment.');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  // Reopen Ticket Handler
+  const handleReopenTicket = async () => {
+    if (!currentRequester) return;
+
+    setReopening(true);
+    setReopenError(null);
+
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dev-Requester-Id': currentRequester.id.toString(),
+        },
+        body: JSON.stringify({
+          status: 'REOPENED',
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error?.message || 'Failed to reopen ticket.');
+      }
+
+      await fetchTicketDetail();
+    } catch (err: any) {
+      console.error('Error reopening ticket:', err);
+      setReopenError(err.message || 'Failed to reopen ticket.');
+    } finally {
+      setReopening(false);
+    }
+  };
+
   // Helpers
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
@@ -286,6 +413,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
       case 'IN_PROGRESS': return { ...base, backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' };
       case 'RESOLVED': return { ...base, backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' };
       case 'CLOSED': return { ...base, backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1' };
+      case 'REOPENED': return { ...base, backgroundColor: '#FFEDD5', color: '#C2410C', border: '1px solid #FDBA74' };
       default: return { ...base, backgroundColor: '#FEF9C3', color: '#CA8A04', border: '1px solid #FDE047' };
     }
   };
@@ -343,7 +471,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
               {ticket.ticketNumber}
             </h3>
           </div>
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
             <div>
               <span className="text-muted small d-block mb-1 text-center">Current Status</span>
               <span style={getStatusPill(ticket.currentStatus)}>
@@ -352,10 +480,31 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
                   : ticket.currentStatus.charAt(0) + ticket.currentStatus.slice(1).toLowerCase()}
               </span>
             </div>
+            {(ticket.currentStatus === 'CLOSED' || ticket.currentStatus === 'RESOLVED') && (
+              <button
+                className="btn btn-outline-warning text-dark btn-sm fw-semibold ms-2"
+                style={{ borderRadius: '8px' }}
+                onClick={handleReopenTicket}
+                disabled={reopening}
+              >
+                {reopening ? 'Reopening...' : '🔄 Reopen Ticket'}
+              </button>
+            )}
           </div>
         </div>
 
         <div className="card-body p-3 p-md-4" style={{ backgroundColor: '#FAFAFA' }}>
+          {reopenError && (
+            <div className="alert alert-danger small p-3 mb-3" style={{ borderRadius: '8px' }}>
+              {reopenError}
+            </div>
+          )}
+
+          {ticket.appearsResolvedAt && (
+            <div className="alert alert-success border-0 bg-success-subtle text-success-emphasis py-2 px-3 mb-3 d-flex align-items-center gap-2 small" style={{ borderRadius: '8px' }}>
+              <span>✓ Requester indicated problem appears resolved on {formatDate(ticket.appearsResolvedAt)}</span>
+            </div>
+          )}
           {/* Read-Only Grid */}
           <div className="row g-3">
             <div className="col-6 col-md-3">
@@ -534,6 +683,111 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Public Comments Section */}
+      <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+        <div className="card-header bg-white border-bottom p-3 p-md-4">
+          <h5 className="fw-bold mb-0" style={{ color: '#111827' }}>
+            Comments & Thread
+          </h5>
+          <span className="text-muted small">Public discussion history on this ticket</span>
+        </div>
+
+        <div className="card-body p-3 p-md-4">
+          {/* Comments List */}
+          {commentsLoading ? (
+            <div className="text-center py-3 text-muted small">Loading comments...</div>
+          ) : !Array.isArray(comments) || comments.length === 0 ? (
+            <div className="text-center py-4 text-muted small border rounded bg-light mb-4">
+              No comments yet. Use the form below to leave a message.
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-3 mb-4">
+              {comments.map((comment) => {
+                const isRequester = comment.authorId === currentRequester?.id;
+                return (
+                  <div
+                    key={comment.id}
+                    className={`p-3 rounded border ${isRequester ? 'bg-white border-success-subtle' : 'bg-light'}`}
+                    style={{ borderRadius: '8px' }}
+                  >
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-bold text-dark small">
+                          {comment.author?.name || (isRequester ? currentRequester?.name : 'User')}
+                        </span>
+                        <span
+                          className={`badge ${
+                            comment.author?.role === 'AGENT' || comment.author?.role === 'ADMIN'
+                              ? 'bg-primary'
+                              : 'bg-secondary'
+                          }`}
+                          style={{ fontSize: '0.7rem' }}
+                        >
+                          {comment.author?.role || (isRequester ? 'Requester' : 'User')}
+                        </span>
+                      </div>
+                      <span className="text-muted extra-small" style={{ fontSize: '0.78rem' }}>
+                        {formatDate(comment.createdAt)}
+                      </span>
+                    </div>
+                    <div className="text-dark small" style={{ whiteSpace: 'pre-wrap' }}>
+                      {comment.content || (comment as any).body}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Post Comment Form */}
+          <form onSubmit={handlePostComment} className="border-top pt-4">
+            <h6 className="fw-semibold text-dark mb-2">Add Public Comment</h6>
+
+            {commentError && (
+              <div className="alert alert-danger small p-2 mb-3" style={{ borderRadius: '6px' }}>
+                {commentError}
+              </div>
+            )}
+
+            <div className="mb-3">
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Type your comment or update here..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                maxLength={2000}
+                required
+              ></textarea>
+            </div>
+
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="appearsResolvedCheck"
+                  checked={appearsResolvedCheck}
+                  onChange={(e) => setAppearsResolvedCheck(e.target.checked)}
+                />
+                <label className="form-check-label small text-muted cursor-pointer" htmlFor="appearsResolvedCheck">
+                  Problem appears resolved from my side
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="btn text-white btn-sm fw-semibold px-4"
+                style={{ backgroundColor: '#15803D', borderRadius: '8px' }}
+                disabled={!newCommentText.trim() || submittingComment}
+              >
+                {submittingComment ? 'Posting...' : 'Post Comment'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
