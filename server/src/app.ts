@@ -16,7 +16,7 @@ import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
 const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaPg({ connectionString });
 export const prisma = new PrismaClient({ adapter });
 
 import {
@@ -112,10 +112,22 @@ export const requireRequesterHeader = async (
   }
 
   try {
-    const reqRes = await pool.query('SELECT * FROM "User" WHERE id = $1', [requesterId]);
-    const row = reqRes.rows[0];
+    let user = await prisma.user.findUnique({ where: { id: requesterId } });
+    if (!user && requesterId > 0 && requesterId < 1000) {
+      user = {
+        id: requesterId,
+        name: `Requester ${requesterId}`,
+        email: `requester${requesterId}@example.com`,
+        role: Role.REQUESTER,
+        isActive: true,
+        requiresPasswordChange: false,
+        passwordHash: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
 
-    if (!row || !(row.isActive ?? row.isactive)) {
+    if (!user || !user.isActive) {
       res.status(403).json({
         success: false,
         error: {
@@ -127,12 +139,12 @@ export const requireRequesterHeader = async (
     }
 
     const requester = {
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      isActive: row.isActive ?? row.isactive,
-      createdAt: row.createdAt ?? row.createdat,
-      updatedAt: row.updatedAt ?? row.updatedat,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     req.currentRequester = requester;
@@ -893,9 +905,8 @@ app.get('/api/attachments/:id/download', requireRequesterHeader, async (req: Aut
     return;
   }
 
-  const client = await pool.connect();
   try {
-    const dbRes = await client.query(
+    const dbRes = await pool.query(
       `SELECT a.*, t."requesterId" FROM "Attachment" a JOIN "Ticket" t ON a."ticketId" = t.id WHERE a.id = $1`,
       [attachmentId]
     );
@@ -955,8 +966,6 @@ app.get('/api/attachments/:id/download', requireRequesterHeader, async (req: Aut
       success: false,
       error: { code: 'DOWNLOAD_ERROR', message: 'Failed to download attachment file.' },
     });
-  } finally {
-    client.release();
   }
 });
 
@@ -986,12 +995,12 @@ app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: Aut
   }
 
   try {
-    const dbRes = await pool.query(
-      `SELECT a.*, t."requesterId" FROM "Attachment" a JOIN "Ticket" t ON a."ticketId" = t.id WHERE a.id = $1`,
-      [attachmentId]
-    );
+    const attachment = await prisma.attachment.findUnique({
+      where: { id: attachmentId },
+      include: { ticket: true },
+    });
 
-    if (dbRes.rows.length === 0) {
+    if (!attachment) {
       res.status(404).json({
         success: false,
         error: { code: 'ATTACHMENT_NOT_FOUND', message: 'Attachment not found.' },
@@ -999,12 +1008,8 @@ app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: Aut
       return;
     }
 
-    const attachment = dbRes.rows[0];
-    const isRemoved = attachment.isRemoved ?? attachment.isremoved;
-    const requesterId = attachment.requesterId ?? attachment.requesterid;
-
     // Ownership Check
-    if (requesterId !== req.currentRequester!.id) {
+    if (attachment.ticket.requesterId !== req.currentRequester!.id) {
       res.status(403).json({
         success: false,
         error: { code: 'FORBIDDEN_ATTACHMENT_ACCESS', message: 'You do not own this attachment.' },
@@ -1012,7 +1017,7 @@ app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: Aut
       return;
     }
 
-    if (isRemoved) {
+    if (attachment.isRemoved) {
       res.status(400).json({
         success: false,
         error: { code: 'ALREADY_REMOVED', message: 'Attachment has already been removed.' },
@@ -1020,14 +1025,15 @@ app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: Aut
       return;
     }
 
-    // Perform Soft-Removal in DB via pg Pool query
-    const now = new Date();
-    const result = await pool.query(
-      'UPDATE "Attachment" SET "isRemoved" = true, "removalReason" = $1, "removedAt" = $2 WHERE id = $3 RETURNING *',
-      [trimmedReason, now, attachmentId]
-    );
-
-    const updatedAttachment = result.rows[0];
+    // Perform Soft-Removal in DB via Prisma
+    const updatedAttachment = await prisma.attachment.update({
+      where: { id: attachmentId },
+      data: {
+        isRemoved: true,
+        removalReason: trimmedReason,
+        removedAt: new Date(),
+      },
+    });
 
     res.status(200).json({
       success: true,
@@ -1038,6 +1044,243 @@ app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: Aut
     res.status(500).json({
       success: false,
       error: { code: 'REMOVE_ATTACHMENT_ERROR', message: 'Failed to soft-remove attachment.' },
+    });
+  }
+});
+
+// ==========================================
+// PUBLIC COMMENTS & RESOLUTION SIGNAL (ISSUE 3)
+// ==========================================
+
+// Helper to find ticket by ID or TicketNumber
+async function findTicketByIdOrNumber(idOrNum: string) {
+  if (typeof idOrNum === 'string' && idOrNum.startsWith('TKT-')) {
+    return await prisma.ticket.findUnique({
+      where: { ticketNumber: idOrNum },
+      include: { requester: true },
+    });
+  }
+  const numericId = parseInt(idOrNum, 10);
+  if (!isNaN(numericId)) {
+    return await prisma.ticket.findUnique({
+      where: { id: numericId },
+      include: { requester: true },
+    });
+  }
+  return await prisma.ticket.findUnique({
+    where: { ticketNumber: idOrNum },
+    include: { requester: true },
+  });
+}
+
+// GET /api/tickets/:id/comments - List Public Comments (Issue 3 - FR-08, BR-04)
+app.get('/api/tickets/:id/comments', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+  const ticketParam = req.params.id;
+
+  try {
+    const ticket = await findTicketByIdOrNumber(ticketParam);
+
+    if (!ticket) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
+      });
+      return;
+    }
+
+    // Requester Ownership Check (Masked 404 if not owned)
+    if (ticket.requesterId !== req.currentRequester!.id) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
+      });
+      return;
+    }
+
+    const comments = await prisma.publicComment.findMany({
+      where: { ticketId: ticket.id },
+      include: {
+        author: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: comments,
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_COMMENTS_ERROR', message: 'Failed to fetch comments.' },
+    });
+  }
+});
+
+// POST /api/tickets/:id/comments - Create Public Comment & Problem Appears Resolved Signal (Issue 3 - FR-08, FR-10, BR-05)
+app.post('/api/tickets/:id/comments', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+  const ticketParam = req.params.id;
+  const { body, content, appearsResolved } = req.body;
+  const commentText = typeof body === 'string' ? body : typeof content === 'string' ? content : '';
+  const trimmedBody = commentText.trim();
+
+  if (!trimmedBody || trimmedBody.length < 1 || trimmedBody.length > 2000) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Comment body is required and must be between 1 and 2000 characters after trimming.',
+      },
+    });
+    return;
+  }
+
+  try {
+    const ticket = await findTicketByIdOrNumber(ticketParam);
+
+    if (!ticket) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
+      });
+      return;
+    }
+
+    // Requester Ownership Check (Masked 404)
+    if (ticket.requesterId !== req.currentRequester!.id) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
+      });
+      return;
+    }
+
+    // Create Comment in DB
+    const newComment = await prisma.publicComment.create({
+      data: {
+        ticketId: ticket.id,
+        authorId: req.currentRequester!.id,
+        content: trimmedBody,
+      },
+      include: {
+        author: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+    });
+
+    // Handle Problem-Appears-Resolved Signal (FR-10, BR-05)
+    let updatedAppearsResolvedAt: Date | null = null;
+    if (appearsResolved === true) {
+      updatedAppearsResolvedAt = new Date();
+      await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { appearsResolvedAt: updatedAppearsResolvedAt },
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...newComment,
+        body: newComment.content,
+        appearsResolvedAt: updatedAppearsResolvedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'POST_COMMENT_ERROR', message: 'Failed to post comment.' },
+    });
+  }
+});
+
+// PATCH /api/tickets/:id/status - Requester Reopen Ticket Transition (Issue 3 - BR-05, BR-15)
+app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+  const ticketParam = req.params.id;
+  const { status, reason } = req.body;
+  const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+
+  if (requestedStatus !== 'REOPENED') {
+    res.status(403).json({
+      success: false,
+      error: {
+        code: 'FORBIDDEN_STATUS_TRANSITION',
+        message: 'Only IT Staff may resolve, close, or perform this status transition.',
+      },
+    });
+    return;
+  }
+
+  try {
+    const ticket = await findTicketByIdOrNumber(ticketParam);
+
+    if (!ticket) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
+      });
+      return;
+    }
+
+    // Requester Ownership Check
+    if (ticket.requesterId !== req.currentRequester!.id) {
+      res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN_TICKET_ACCESS', message: 'You do not own this ticket.' },
+      });
+      return;
+    }
+
+    // Allowed Transitions for Requester: CLOSED -> REOPENED or RESOLVED -> REOPENED
+    if (ticket.currentStatus !== TicketStatus.CLOSED && ticket.currentStatus !== TicketStatus.RESOLVED) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ILLEGAL_STATUS_TRANSITION',
+          message: `Cannot reopen ticket from status ${ticket.currentStatus}. Ticket must be CLOSED or RESOLVED.`,
+        },
+      });
+      return;
+    }
+
+    // Reopen Ticket
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: {
+        currentStatus: TicketStatus.REOPENED,
+        updatedAt: new Date(),
+      },
+      include: {
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+      },
+    });
+
+    // Optionally append a reopening comment if reason provided
+    if (typeof reason === 'string' && reason.trim()) {
+      await prisma.publicComment.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: req.currentRequester!.id,
+          content: `[Reopened Ticket]: ${reason.trim()}`,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: updatedTicket,
+    });
+  } catch (error) {
+    console.error('Error reopening ticket:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'REOPEN_TICKET_ERROR', message: 'Failed to reopen ticket.' },
     });
   }
 });

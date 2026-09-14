@@ -526,10 +526,6 @@ export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }
 
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type AttachmentCreateWithoutTicketInput = {
   originalName: string
   storedName: string
