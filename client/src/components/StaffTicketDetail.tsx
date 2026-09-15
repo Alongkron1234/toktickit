@@ -83,10 +83,12 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [ownershipError, setOwnershipError] = useState<string | null>(null);
 
   const [prioritySaving, setPrioritySaving] = useState(false);
+  const [priorityError, setPriorityError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState('');
   const [resolutionSummaryDraft, setResolutionSummaryDraft] = useState('');
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'comments' | 'notes' | 'attachments'>('comments');
   const [comments, setComments] = useState<CommentOrNote[]>([]);
@@ -97,6 +99,8 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [newNoteText, setNewNoteText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [submittingNote, setSubmittingNote] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   const authHeaders = useCallback((): Record<string, string> => ({ Authorization: `Bearer ${token}` }), [token]);
 
@@ -114,6 +118,9 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     },
     [logout]
   );
+
+  const getErrorMessage = (err: unknown, fallback: string): string =>
+    err instanceof Error && err.message ? err.message : fallback;
 
   const fetchTicket = useCallback(async () => {
     if (!token) {
@@ -134,8 +141,8 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
       setTicket(result.data);
       setPendingStatus(result.data.currentStatus);
       setResolutionSummaryDraft(result.data.resolutionSummary || '');
-    } catch (err: any) {
-      setError(err.message || 'Unable to load ticket details.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to load ticket details.'));
     } finally {
       setLoading(false);
     }
@@ -145,18 +152,20 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     if (!token) return;
     try {
       const res = await fetch('/api/staff/members', { headers: authHeaders() });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (res.ok && result.success) setMembers(result.data);
     } catch {
       // Non-critical for initial page render; reassign dropdown just stays empty.
     }
-  }, [token, authHeaders]);
+  }, [token, authHeaders, handleUnauthorized]);
 
   const fetchComments = useCallback(async () => {
     if (!token) return;
     setCommentsLoading(true);
     try {
       const res = await fetch(`/api/tickets/${ticketId}/comments`, { headers: authHeaders() });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (res.ok && result.success) setComments(result.data);
     } catch {
@@ -164,7 +173,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     } finally {
       setCommentsLoading(false);
     }
-  }, [ticketId, token, authHeaders]);
+  }, [ticketId, token, authHeaders, handleUnauthorized]);
 
   const fetchNotes = useCallback(async () => {
     if (!token) return;
@@ -173,6 +182,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     setNotesLoading(true);
     try {
       const res = await fetch(`/api/staff/tickets/${ticketId}/internal-notes`, { headers: authHeaders() });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (res.ok && result.success) setNotes(result.data);
     } catch {
@@ -180,7 +190,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     } finally {
       setNotesLoading(false);
     }
-  }, [ticketId, token, authHeaders, user]);
+  }, [ticketId, token, authHeaders, user, handleUnauthorized]);
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
@@ -196,11 +206,12 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ ownerId: user.id }),
       });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to claim ticket.');
       await fetchTicket();
-    } catch (err: any) {
-      setOwnershipError(err.message || 'Failed to claim ticket.');
+    } catch (err: unknown) {
+      setOwnershipError(getErrorMessage(err, 'Failed to claim ticket.'));
     } finally {
       setOwnershipSaving(false);
     }
@@ -216,13 +227,14 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ ownerId: parseInt(reassignTarget, 10) }),
       });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to reassign ticket.');
       setShowReassign(false);
       setReassignTarget('');
       await fetchTicket();
-    } catch (err: any) {
-      setOwnershipError(err.message || 'Failed to reassign ticket.');
+    } catch (err: unknown) {
+      setOwnershipError(getErrorMessage(err, 'Failed to reassign ticket.'));
     } finally {
       setOwnershipSaving(false);
     }
@@ -230,14 +242,19 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
   const handlePriorityChange = async (newPriority: string) => {
     setPrioritySaving(true);
+    setPriorityError(null);
     try {
       const res = await fetch(`/api/staff/tickets/${ticketId}/priority`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ itPriority: newPriority }),
       });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
-      if (res.ok && result.success) setTicket((t) => (t ? { ...t, itPriority: result.data.itPriority } : t));
+      if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to update IT Priority.');
+      setTicket((t) => (t ? { ...t, itPriority: result.data.itPriority } : t));
+    } catch (err: unknown) {
+      setPriorityError(getErrorMessage(err, 'Failed to update IT Priority.'));
     } finally {
       setPrioritySaving(false);
     }
@@ -253,11 +270,12 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ status: pendingStatus, resolutionSummary: resolutionSummaryDraft.trim() || undefined }),
       });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to update status.');
       await fetchTicket();
-    } catch (err: any) {
-      setStatusError(err.message || 'Failed to update status.');
+    } catch (err: unknown) {
+      setStatusError(getErrorMessage(err, 'Failed to update status.'));
       setPendingStatus(ticket.currentStatus);
     } finally {
       setStatusSaving(false);
@@ -268,17 +286,20 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     e.preventDefault();
     if (!newCommentText.trim()) return;
     setSubmittingComment(true);
+    setCommentError(null);
     try {
       const res = await fetch(`/api/tickets/${ticketId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ body: newCommentText.trim() }),
       });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
-      if (res.ok && result.success) {
-        setNewCommentText('');
-        await fetchComments();
-      }
+      if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to post comment.');
+      setNewCommentText('');
+      await fetchComments();
+    } catch (err: unknown) {
+      setCommentError(getErrorMessage(err, 'Failed to post comment.'));
     } finally {
       setSubmittingComment(false);
     }
@@ -288,17 +309,20 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     e.preventDefault();
     if (!newNoteText.trim()) return;
     setSubmittingNote(true);
+    setNoteError(null);
     try {
       const res = await fetch(`/api/staff/tickets/${ticketId}/internal-notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ content: newNoteText.trim() }),
       });
+      if (await handleUnauthorized(res)) return;
       const result = await res.json();
-      if (res.ok && result.success) {
-        setNewNoteText('');
-        await fetchNotes();
-      }
+      if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to post internal note.');
+      setNewNoteText('');
+      await fetchNotes();
+    } catch (err: unknown) {
+      setNoteError(getErrorMessage(err, 'Failed to post internal note.'));
     } finally {
       setSubmittingNote(false);
     }
@@ -306,8 +330,10 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
   const handleDownload = async (attachment: StaffAttachmentItem) => {
     if (attachment.isRemoved) return;
+    setDownloadError(null);
     try {
       const res = await fetch(`/api/attachments/${attachment.id}/download`, { headers: authHeaders() });
+      if (await handleUnauthorized(res)) return;
       if (!res.ok) throw new Error('Failed to download attachment.');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -318,8 +344,8 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
       a.click();
       window.URL.revokeObjectURL(url);
       a.remove();
-    } catch (err: any) {
-      alert(err.message || 'Error downloading file.');
+    } catch (err: unknown) {
+      setDownloadError(getErrorMessage(err, 'Error downloading file.'));
     }
   };
 
@@ -362,6 +388,8 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
   const allowedNextStatuses = VALID_TRANSITIONS[ticket.currentStatus] || [];
   const isSelfOwner = ticket.owner?.id === user?.id;
+  // Defensive default: the API always returns an array here, but guard anyway.
+  const attachments = ticket.attachments ?? [];
   // Defense in depth: this screen is only ever routed to for IT_STAFF/ADMINISTRATOR
   // (see App.tsx), but never render Internal Notes UI for any other role regardless.
   const canSeeInternalNotes = user?.role === 'IT_STAFF' || user?.role === 'ADMINISTRATOR';
@@ -459,6 +487,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 onChange={(e) => handlePriorityChange(e.target.value)} disabled={prioritySaving}>
                 {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{formatPriority(p)}</option>)}
               </select>
+              {priorityError && <div className="text-danger extra-small mt-1" style={{ fontSize: '0.78rem' }}>{priorityError}</div>}
             </div>
           </div>
 
@@ -527,7 +556,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
               <button className={`nav-link ${activeTab === 'attachments' ? 'active fw-semibold' : ''}`}
                 style={activeTab === 'attachments' ? { color: '#15803D', borderColor: '#15803D #15803D #fff' } : { color: '#4A6358', border: 'none' }}
                 onClick={() => setActiveTab('attachments')}>
-                📎 Attachments ({ticket.attachments.length})
+                📎 Attachments ({attachments.length})
               </button>
             </li>
           </ul>
@@ -562,6 +591,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
               )}
 
               <form onSubmit={handlePostComment} className="border-top pt-3">
+                {commentError && <div className="alert alert-danger small p-2 mb-2" style={{ borderRadius: '6px' }}>{commentError}</div>}
                 <textarea className="form-control mb-2" rows={2} placeholder="Type a public comment or update..."
                   value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} maxLength={2000} required />
                 <button type="submit" className="btn btn-sm text-white fw-semibold"
@@ -601,6 +631,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
               )}
 
               <form onSubmit={handlePostNote} className="border-top pt-3">
+                {noteError && <div className="alert alert-danger small p-2 mb-2" style={{ borderRadius: '6px' }}>{noteError}</div>}
                 <textarea className="form-control mb-2" rows={2} placeholder="Add a private internal note..."
                   value={newNoteText} onChange={(e) => setNewNoteText(e.target.value)} maxLength={2000} required />
                 <button type="submit" className="btn btn-sm text-white fw-semibold"
@@ -614,11 +645,12 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
 
           {activeTab === 'attachments' && (
             <div>
-              {ticket.attachments.length === 0 ? (
+              {downloadError && <div className="alert alert-danger small p-2 mb-3" style={{ borderRadius: '6px' }}>{downloadError}</div>}
+              {attachments.length === 0 ? (
                 <div className="text-center py-4 text-muted small">No attachments uploaded for this ticket.</div>
               ) : (
                 <div className="d-flex flex-column gap-3">
-                  {ticket.attachments.map((att) => (
+                  {attachments.map((att) => (
                     <div key={att.id} className={`d-flex align-items-center justify-content-between p-3 border rounded flex-wrap gap-2 ${att.isRemoved ? 'bg-light opacity-75' : 'bg-white'}`}
                       style={{ borderRadius: '8px', borderStyle: att.isRemoved ? 'dashed' : 'solid' }}>
                       <div>

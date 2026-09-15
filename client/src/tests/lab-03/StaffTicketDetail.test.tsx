@@ -258,4 +258,145 @@ describe('StaffTicketDetail UI Tests (Lab 3 - Issue 5)', () => {
     expect(screen.queryByText(/PRIVATE — IT STAFF ONLY/)).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/internal-notes'), expect.anything());
   });
+
+  it('a failed IT Priority update shows an inline error message', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method || 'GET';
+      if (url.includes('/priority')) return Promise.resolve(jsonResponse({ success: false, error: { message: 'Server error updating priority.' } }, 500));
+      if (url.includes('/internal-notes')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/comments')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/staff/members')) return Promise.resolve(jsonResponse({ success: true, data: mockMembers }));
+      if (url.includes('/staff/tickets/')) return Promise.resolve(jsonResponse({ success: true, data: baseTicket }));
+      return Promise.reject(new Error(`Unhandled fetch: ${method} ${url}`));
+    });
+    global.fetch = fetchMock;
+
+    renderWithAuth(<StaffTicketDetail ticketId={1} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('IT Priority'), { target: { value: 'HIGH' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Server error updating priority.')).toBeInTheDocument();
+    });
+  });
+
+  it('a failed Public Comment post shows an inline error message', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method || 'GET';
+      if (url.includes('/comments') && method === 'POST') return Promise.resolve(jsonResponse({ success: false, error: { message: 'Comment body is required.' } }, 400));
+      if (url.includes('/comments')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/internal-notes')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/staff/members')) return Promise.resolve(jsonResponse({ success: true, data: mockMembers }));
+      if (url.includes('/staff/tickets/')) return Promise.resolve(jsonResponse({ success: true, data: baseTicket }));
+      return Promise.reject(new Error(`Unhandled fetch: ${method} ${url}`));
+    });
+    global.fetch = fetchMock;
+
+    renderWithAuth(<StaffTicketDetail ticketId={1} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Type a public comment or update...'), { target: { value: 'Hello' } });
+    fireEvent.click(screen.getByText('Post Comment'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Comment body is required.')).toBeInTheDocument();
+    });
+  });
+
+  it('a failed Internal Note post shows an inline error message', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method || 'GET';
+      if (url.includes('/internal-notes') && method === 'POST') return Promise.resolve(jsonResponse({ success: false, error: { message: 'Note content is required.' } }, 400));
+      if (url.includes('/internal-notes')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/comments')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/staff/members')) return Promise.resolve(jsonResponse({ success: true, data: mockMembers }));
+      if (url.includes('/staff/tickets/')) return Promise.resolve(jsonResponse({ success: true, data: baseTicket }));
+      return Promise.reject(new Error(`Unhandled fetch: ${method} ${url}`));
+    });
+    global.fetch = fetchMock;
+
+    renderWithAuth(<StaffTicketDetail ticketId={1} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText(/Internal Notes/));
+    fireEvent.change(await screen.findByPlaceholderText('Add a private internal note...'), { target: { value: 'Hello' } });
+    fireEvent.click(screen.getByText('Add Internal Note'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Note content is required.')).toBeInTheDocument();
+    });
+  });
+
+  it('a download failure shows an inline error instead of a native alert()', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const ticketWithAttachment = {
+      ...baseTicket,
+      attachments: [{ id: 1, originalName: 'log.pdf', storedName: 'x.pdf', mimeType: 'application/pdf', fileSize: 100, isRemoved: false, createdAt: '2026-05-12T09:14:00.000Z' }],
+    };
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method || 'GET';
+      if (url.includes('/download')) return Promise.resolve(new Response('', { status: 500 }));
+      if (url.includes('/internal-notes')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/comments')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/staff/members')) return Promise.resolve(jsonResponse({ success: true, data: mockMembers }));
+      if (url.includes('/staff/tickets/')) return Promise.resolve(jsonResponse({ success: true, data: ticketWithAttachment }));
+      return Promise.reject(new Error(`Unhandled fetch: ${method} ${url}`));
+    });
+    global.fetch = fetchMock;
+
+    renderWithAuth(<StaffTicketDetail ticketId={1} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText(/Attachments/));
+    fireEvent.click(await screen.findByText('Download'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to download attachment.')).toBeInTheDocument();
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('a 401 while fetching Public Comments signs the user out', async () => {
+    const mockLogout = vi.fn().mockResolvedValue(undefined);
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method || 'GET';
+      if (url.includes('/comments') && method === 'GET') return Promise.resolve(new Response(JSON.stringify({ success: false }), { status: 401 }));
+      if (url.includes('/internal-notes')) return Promise.resolve(jsonResponse({ success: true, data: [] }));
+      if (url.includes('/staff/members')) return Promise.resolve(jsonResponse({ success: true, data: mockMembers }));
+      if (url.includes('/staff/tickets/')) return Promise.resolve(jsonResponse({ success: true, data: baseTicket }));
+      return Promise.reject(new Error(`Unhandled fetch: ${method} ${url}`));
+    });
+    global.fetch = fetchMock;
+
+    render(
+      <AuthContext.Provider
+        value={{
+          user: mockStaffUser,
+          token: 'mock-token',
+          isLoading: false,
+          login: vi.fn(),
+          logout: mockLogout,
+          changePassword: vi.fn(),
+          refreshUser: vi.fn(),
+        }}
+      >
+        <StaffTicketDetail ticketId={1} onBack={vi.fn()} />
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => expect(mockLogout).toHaveBeenCalled());
+  });
+
+  it('shows only the placeholder option in Reassign Owner when no other members exist', async () => {
+    const fetchMock = routeFetch({ members: [] });
+    global.fetch = fetchMock;
+    renderWithAuth(<StaffTicketDetail ticketId={1} onBack={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getAllByText('TKT-2026-000001')[0]).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('🔁 Reassign Owner'));
+    const select = await screen.findByDisplayValue('Select a staff member...');
+    expect(within(select).getAllByRole('option')).toHaveLength(1);
+  });
 });
