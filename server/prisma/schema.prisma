@@ -85,6 +85,7 @@ model Ticket {
   itPriority        Priority     @default(MEDIUM)
   currentStatus     TicketStatus @default(NEW)
   appearsResolvedAt DateTime?
+  resolutionSummary String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 

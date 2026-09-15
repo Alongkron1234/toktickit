@@ -8,6 +8,7 @@ import { CreateTicketScreen } from './components/CreateTicketScreen';
 import { MyTicketsScreen } from './components/MyTicketsScreen';
 import { TicketDetailScreen } from './components/TicketDetailScreen';
 import { StaffTicketQueue } from './components/StaffTicketQueue';
+import { StaffTicketDetail } from './components/StaffTicketDetail';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -126,22 +127,13 @@ const MainAppContent: React.FC = () => {
           </>
         )}
 
-        {/* IT Staff Views (Issue 4: Queue; Issue 5: full Ticket Detail operations) */}
+        {/* IT Staff Views (Issue 4: Queue; Issue 5: Ticket Detail operations) */}
         {(activeUser.role === 'IT_STAFF' || activeUser.role === 'ADMINISTRATOR') && activeNav === 'staff-queue' && (
           selectedTicketId ? (
-            <div className="card border-0 shadow-sm p-4">
-              <button
-                className="btn btn-sm btn-outline-secondary mb-3"
-                style={{ width: 'fit-content' }}
-                onClick={() => setSelectedTicketId(null)}
-              >
-                &lt; Back to Queue
-              </button>
-              <h4 className="fw-bold text-secondary">📋 Ticket #{selectedTicketId}</h4>
-              <p className="text-muted mb-0">
-                Claim/reassign ownership, IT Priority, status workflow, Public Comments, and Internal Notes will be integrated in Issue 5.
-              </p>
-            </div>
+            <StaffTicketDetail
+              ticketId={selectedTicketId}
+              onBack={() => setSelectedTicketId(null)}
+            />
           ) : (
             <StaffTicketQueue onSelectTicket={(ticketId) => setSelectedTicketId(ticketId)} />
           )
