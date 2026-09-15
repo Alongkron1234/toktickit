@@ -80,7 +80,6 @@ describe('StaffTicketQueue UI Tests (Lab 3 - Issue 4)', () => {
     expect(screen.getByLabelText('Status')).toBeInTheDocument();
     expect(screen.getByLabelText('IT Priority')).toBeInTheDocument();
     expect(screen.getByLabelText('Owner')).toBeInTheDocument();
-    expect(screen.getByLabelText('Sort By')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getAllByText('TKT-2026-001234')[0]).toBeInTheDocument();
@@ -139,6 +138,48 @@ describe('StaffTicketQueue UI Tests (Lab 3 - Issue 4)', () => {
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('ownerId=unassigned'), expect.anything());
     });
+  });
+
+  it('Clicking a sortable column header changes sort field, and clicking it again flips the order', async () => {
+    // A fresh Response per call — a Response body can only be read (.json()) once,
+    // and this test triggers several sequential fetches.
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify(mockQueueResponse)))
+    );
+
+    renderWithAuth(<StaffTicketQueue />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('TKT-2026-001234')[0]).toBeInTheDocument();
+    });
+
+    // Defaults: sortBy=createdAt, sortOrder=desc
+    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('sortBy=createdAt'), expect.anything());
+    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('sortOrder=desc'), expect.anything());
+
+    // Click "Ticket No." header -> switches sort field, defaults to descending
+    fireEvent.click(screen.getByRole('columnheader', { name: /Ticket No\./i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenLastCalledWith(expect.stringContaining('sortBy=ticketNumber'), expect.anything());
+    });
+    expect(fetchSpy).toHaveBeenLastCalledWith(expect.stringContaining('sortOrder=desc'), expect.anything());
+
+    // Click the same header again -> flips to ascending, field unchanged
+    fireEvent.click(screen.getByRole('columnheader', { name: /Ticket No\./i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenLastCalledWith(expect.stringContaining('sortOrder=asc'), expect.anything());
+    });
+    expect(fetchSpy).toHaveBeenLastCalledWith(expect.stringContaining('sortBy=ticketNumber'), expect.anything());
+
+    // Click a different header ("IT Priority") -> switches field and resets to descending
+    fireEvent.click(screen.getByRole('columnheader', { name: /IT Priority/i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenLastCalledWith(expect.stringContaining('sortBy=itPriority'), expect.anything());
+    });
+    expect(fetchSpy).toHaveBeenLastCalledWith(expect.stringContaining('sortOrder=desc'), expect.anything());
   });
 
   it('Clicking a ticket row calls onSelectTicket with the ticket id', async () => {

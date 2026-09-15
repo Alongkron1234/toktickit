@@ -128,6 +128,15 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
     setSortBy('createdAt'); setSortOrder('desc'); setPage(1);
   };
 
+  const handleSortToggle = (field: typeof sortBy) => {
+    if (sortBy === field) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(field); setSortOrder('desc'); }
+    setPage(1);
+  };
+
+  const sortIcon = (field: typeof sortBy) =>
+    sortBy === field ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+
   const isFilterActive = !!(searchTerm || status || priority || ownerFilter);
 
   return (
@@ -206,17 +215,6 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
                 <option value="">All Tickets</option>
                 <option value="unassigned">Unassigned</option>
                 <option value="me">Assigned to Me</option>
-              </select>
-            </div>
-
-            <div className="col-6 col-md-3 col-lg-auto">
-              <label htmlFor="staff-queue-sort-select" className="d-block text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>Sort By</label>
-              <select id="staff-queue-sort-select" className="form-select" value={sortBy}
-                onChange={(e) => { setSortBy(e.target.value as typeof sortBy); setPage(1); }} style={selectStyle}>
-                <option value="createdAt">Created Date</option>
-                <option value="itPriority">IT Priority</option>
-                <option value="currentStatus">Status</option>
-                <option value="ticketNumber">Ticket Number</option>
               </select>
             </div>
 
@@ -326,13 +324,25 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
               <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
                 <thead>
                   <tr>
-                    <th scope="col" className="py-3 ps-3" style={thStyle}>Ticket No.</th>
-                    <th scope="col" className="py-3 px-2 d-none d-lg-table-cell" style={thStyle}>Created Date</th>
+                    <th scope="col" className="py-3 ps-3" style={{ ...thStyle, cursor: 'pointer' }}
+                      onClick={() => handleSortToggle('ticketNumber')}>
+                      Ticket No.{sortIcon('ticketNumber')}
+                    </th>
+                    <th scope="col" className="py-3 px-2 d-none d-lg-table-cell" style={{ ...thStyle, cursor: 'pointer' }}
+                      onClick={() => handleSortToggle('createdAt')}>
+                      Created Date{sortIcon('createdAt')}
+                    </th>
                     <th scope="col" className="py-3 px-2" style={thStyle}>Summary</th>
                     <th scope="col" className="py-3 px-2 d-none d-lg-table-cell" style={thStyle}>Category</th>
                     <th scope="col" className="py-3 px-2 text-center d-none d-lg-table-cell" style={thStyle}>Requested Priority</th>
-                    <th scope="col" className="py-3 px-2 text-center" style={thStyle}>IT Priority</th>
-                    <th scope="col" className="py-3 px-2 text-center" style={thStyle}>Status</th>
+                    <th scope="col" className="py-3 px-2 text-center" style={{ ...thStyle, cursor: 'pointer' }}
+                      onClick={() => handleSortToggle('itPriority')}>
+                      IT Priority{sortIcon('itPriority')}
+                    </th>
+                    <th scope="col" className="py-3 px-2 text-center" style={{ ...thStyle, cursor: 'pointer' }}
+                      onClick={() => handleSortToggle('currentStatus')}>
+                      Status{sortIcon('currentStatus')}
+                    </th>
                     <th scope="col" className="py-3 px-2 d-none d-lg-table-cell" style={thStyle}>Owner</th>
                     <th scope="col" className="py-3 pe-3 text-end" style={thStyle}>Actions</th>
                   </tr>
