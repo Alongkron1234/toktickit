@@ -57,7 +57,7 @@ Lab 3 extends the **Zen Green Design System** established in Lab 2. All new comp
 - **Layout Structure:** Top Filter/Search Bar + Data Grid / Responsive Card Container + Bottom Pagination Bar.
 - **Filter & Search Controls:**
   - Search input with magnifying glass icon (filters by Ticket Number or Summary).
-  - Dropdown Filters: `Status`, `Requested Priority`, `IT Priority`, `Owner` (All, Unassigned, Assigned to Me).
+  - Dropdown Filters: `Status`, `IT Priority`, `Owner` (All, Unassigned, Assigned to Me). Requested Priority is shown as a read-only table column (not a filter) since IT Staff triage primarily by IT Priority, the value they control.
 - **Data Table Layout (Desktop ≥992px):** Columns for Ticket No., Created Date, Summary, Category, Requested Priority, IT Priority, Status, Owner, Actions.
 - **Card List Layout (Mobile <768px):** Clean card representation showing Ticket No., Summary, status/priority badges stacked vertically with tap target to open detail.
 

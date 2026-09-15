@@ -200,7 +200,9 @@ Retrieve shared Ticket Queue with search, filters, sorting, and pagination.
   - `priority` (string): Filter by `itPriority`
   - `ownerId` (integer | "unassigned"): Filter by owner
   - `page` (default 1), `limit` (default 10)
-  - `sortBy` (default `createdAt`), `sortOrder` (`asc` | `desc`)
+  - `sortBy` (default `createdAt`): one of `createdAt`, `updatedAt`, `ticketNumber`, `itPriority`, `currentStatus`
+  - `sortOrder` (`asc` | `desc`, default `desc`)
+- **Invalid Query Parameters:** An unrecognized or invalid value for `status`, `priority`, `sortBy`, or `sortOrder` is ignored rather than rejected — the endpoint falls back to that parameter's default (no filter applied, or `createdAt`/`desc` for sorting) instead of returning a `400`.
 - **Response `200 OK`:**
 ```json
 {
