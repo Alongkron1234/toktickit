@@ -56,6 +56,20 @@ export const formatDate = (dateStr: string) => {
   }
 };
 
+// Role badge — shared by Header.tsx and UserManagement.tsx
+export const getRoleBadge = (role: string): { style: CSSProperties; label: string } => {
+  switch (role) {
+    case 'REQUESTER':
+      return { style: { backgroundColor: '#EEF2FF', color: '#4F46E5' }, label: 'Requester' };
+    case 'IT_STAFF':
+      return { style: { backgroundColor: '#CCFBF1', color: '#0D9488' }, label: 'IT Staff' };
+    case 'ADMINISTRATOR':
+      return { style: { backgroundColor: '#FEF3C7', color: '#D97706' }, label: 'Administrator' };
+    default:
+      return { style: { backgroundColor: '#E2E8F0', color: '#475569' }, label: role };
+  }
+};
+
 // Smart pagination with ellipsis (matches mockup "1 2 3 4 5 … 6")
 export const getPaginationPages = (current: number, total: number): (number | '...')[] => {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);

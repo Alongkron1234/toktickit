@@ -1,5 +1,6 @@
 import React from 'react';
-import { useAuth, type UserRole } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { getRoleBadge } from '../utils/badges';
 
 interface HeaderProps {
   activeNav: 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
@@ -8,19 +9,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
   const { user, logout } = useAuth();
-
-  const getRoleBadgeStyle = (role: UserRole) => {
-    switch (role) {
-      case 'REQUESTER':
-        return { backgroundColor: '#EEF2FF', color: '#4F46E5', label: 'Requester' };
-      case 'IT_STAFF':
-        return { backgroundColor: '#CCFBF1', color: '#0D9488', label: 'IT Staff' };
-      case 'ADMINISTRATOR':
-        return { backgroundColor: '#FEF3C7', color: '#D97706', label: 'Administrator' };
-      default:
-        return { backgroundColor: '#E2E8F0', color: '#475569', label: role };
-    }
-  };
 
   return (
     <header className="shadow-sm" style={{ backgroundColor: '#006B3C', color: '#FFFFFF' }}>
@@ -118,12 +106,11 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
                   className="badge px-2 py-1 fw-bold mt-1 text-center"
                   style={{
                     fontSize: '0.65rem',
-                    backgroundColor: getRoleBadgeStyle(user.role).backgroundColor,
-                    color: getRoleBadgeStyle(user.role).color,
+                    ...getRoleBadge(user.role).style,
                     borderRadius: '10px',
                   }}
                 >
-                  {getRoleBadgeStyle(user.role).label}
+                  {getRoleBadge(user.role).label}
                 </span>
               </div>
             </div>

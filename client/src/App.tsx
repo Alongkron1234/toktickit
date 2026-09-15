@@ -9,6 +9,7 @@ import { MyTicketsScreen } from './components/MyTicketsScreen';
 import { TicketDetailScreen } from './components/TicketDetailScreen';
 import { StaffTicketQueue } from './components/StaffTicketQueue';
 import { StaffTicketDetail } from './components/StaffTicketDetail';
+import { UserManagement } from './components/UserManagement';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -139,12 +140,9 @@ const MainAppContent: React.FC = () => {
           )
         )}
 
-        {/* Administrator Views Placeholder (Issue 6) */}
+        {/* Administrator Views (Issue 6) */}
         {activeUser.role === 'ADMINISTRATOR' && activeNav === 'user-management' && (
-          <div className="card border-0 shadow-sm p-4 text-center">
-            <h4 className="fw-bold text-secondary">👥 Administrator User Management</h4>
-            <p className="text-muted">The Administrator User Management screen will be integrated in Issue 6.</p>
-          </div>
+          <UserManagement />
         )}
       </main>
     </div>

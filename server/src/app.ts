@@ -1701,6 +1701,302 @@ app.post(
   }
 );
 
+// ==========================================
+// ADMINISTRATOR USER MANAGEMENT (ISSUE 6)
+// ==========================================
+
+const VALID_ROLES = Object.values(Role);
+
+// GET /api/admin/users - List Users with Search & Role Filter
+app.get(
+  '/api/admin/users',
+  requireAuth,
+  requireRole(Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { search, role } = req.query;
+
+    try {
+      const where: any = {};
+
+      if (typeof search === 'string' && search.trim()) {
+        const term = search.trim();
+        where.OR = [
+          { name: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+        ];
+      }
+
+      if (typeof role === 'string' && VALID_ROLES.includes(role.toUpperCase() as Role)) {
+        where.role = role.toUpperCase() as Role;
+      }
+
+      const users = await prisma.user.findMany({
+        where,
+        select: { id: true, name: true, email: true, role: true, isActive: true, requiresPasswordChange: true },
+        orderBy: { name: 'asc' },
+      });
+
+      res.status(200).json({ success: true, data: users });
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'FETCH_USERS_ERROR', message: 'Failed to fetch users.' },
+      });
+    }
+  }
+);
+
+// POST /api/admin/users - Create a New User Account
+app.post(
+  '/api/admin/users',
+  requireAuth,
+  requireRole(Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { name, email, role, isActive, initialPassword } = req.body;
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedRole = typeof role === 'string' ? role.trim().toUpperCase() : '';
+
+    const validationDetails: Array<{ field: string; message: string }> = [];
+    if (!trimmedName || trimmedName.length < 2) {
+      validationDetails.push({ field: 'name', message: 'Name is required and must be at least 2 characters.' });
+    }
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      validationDetails.push({ field: 'email', message: 'A valid email address is required.' });
+    }
+    if (!VALID_ROLES.includes(normalizedRole as Role)) {
+      validationDetails.push({ field: 'role', message: 'Role must be one of REQUESTER, IT_STAFF, ADMINISTRATOR.' });
+    }
+
+    let complexity: { isValid: boolean; message?: string } = { isValid: true };
+    if (typeof initialPassword !== 'string' || !initialPassword) {
+      validationDetails.push({ field: 'initialPassword', message: 'Initial password is required.' });
+    } else {
+      complexity = validatePasswordComplexity(initialPassword);
+      if (!complexity.isValid) {
+        validationDetails.push({ field: 'initialPassword', message: complexity.message || 'Password does not meet complexity requirements.' });
+      }
+    }
+
+    if (validationDetails.length > 0) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Validation failed for one or more fields.', details: validationDetails },
+      });
+      return;
+    }
+
+    try {
+      // Email Uniqueness Check (BR-11, case-insensitive)
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existing) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'DUPLICATE_EMAIL', message: 'A user with this email address already exists.' },
+        });
+        return;
+      }
+
+      const newUser = await prisma.user.create({
+        data: {
+          name: trimmedName,
+          email: normalizedEmail,
+          role: normalizedRole as Role,
+          isActive: isActive !== false,
+          passwordHash: hashPassword(initialPassword),
+          requiresPasswordChange: true,
+        },
+        select: { id: true, name: true, email: true, role: true, isActive: true, requiresPasswordChange: true },
+      });
+
+      res.status(201).json({ success: true, data: newUser });
+    } catch (error) {
+      console.error('Error creating user:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'CREATE_USER_ERROR', message: 'Failed to create user.' },
+      });
+    }
+  }
+);
+
+// PATCH /api/admin/users/:id - Update Basic Account Info, Role & Active State
+app.patch(
+  '/api/admin/users/:id',
+  requireAuth,
+  requireRole(Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const targetId = parseInt(req.params.id, 10);
+    const { name, email, role, isActive } = req.body;
+
+    if (isNaN(targetId)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_USER_ID', message: 'Invalid user ID.' } });
+      return;
+    }
+
+    try {
+      const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+      if (!targetUser) {
+        res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
+        return;
+      }
+
+      const updateData: any = {};
+
+      if (typeof name === 'string') {
+        const trimmedName = name.trim();
+        if (!trimmedName || trimmedName.length < 2) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'Name must be at least 2 characters.' },
+          });
+          return;
+        }
+        updateData.name = trimmedName;
+      }
+
+      if (typeof email === 'string') {
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required.' },
+          });
+          return;
+        }
+        // Email Uniqueness Check excluding self (BR-11)
+        const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+        if (existing && existing.id !== targetId) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'DUPLICATE_EMAIL', message: 'A user with this email address already exists.' },
+          });
+          return;
+        }
+        updateData.email = normalizedEmail;
+      }
+
+      let normalizedRole: Role | undefined;
+      if (typeof role === 'string') {
+        normalizedRole = role.trim().toUpperCase() as Role;
+        if (!VALID_ROLES.includes(normalizedRole)) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'Role must be one of REQUESTER, IT_STAFF, ADMINISTRATOR.' },
+          });
+          return;
+        }
+        updateData.role = normalizedRole;
+      }
+
+      // BR-13: Self-Deactivation Guard
+      if (targetId === req.user!.id && isActive === false) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'SELF_DEACTIVATION_FORBIDDEN', message: 'You cannot deactivate your own account.' },
+        });
+        return;
+      }
+
+      // BR-14: Last Administrator Guard — block if this update would remove the
+      // target's active-Administrator status and no other active Administrator remains.
+      const losingAdminStatus =
+        targetUser.role === Role.ADMINISTRATOR &&
+        ((isActive === false) || (normalizedRole !== undefined && normalizedRole !== Role.ADMINISTRATOR));
+
+      if (losingAdminStatus) {
+        const otherActiveAdmins = await prisma.user.count({
+          where: { role: Role.ADMINISTRATOR, isActive: true, id: { not: targetId } },
+        });
+        if (otherActiveAdmins === 0) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'LAST_ADMIN_GUARD', message: 'The system must have at least one active Administrator.' },
+          });
+          return;
+        }
+      }
+
+      if (typeof isActive === 'boolean') {
+        updateData.isActive = isActive;
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: targetId },
+        data: updateData,
+        select: { id: true, name: true, email: true, role: true, isActive: true, requiresPasswordChange: true },
+      });
+
+      res.status(200).json({ success: true, data: updatedUser });
+    } catch (error) {
+      console.error('Error updating user:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_USER_ERROR', message: 'Failed to update user.' },
+      });
+    }
+  }
+);
+
+// POST /api/admin/users/:id/reset-password - Issue a New Initial Password
+app.post(
+  '/api/admin/users/:id/reset-password',
+  requireAuth,
+  requireRole(Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const targetId = parseInt(req.params.id, 10);
+    const { newInitialPassword } = req.body;
+
+    if (isNaN(targetId)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_USER_ID', message: 'Invalid user ID.' } });
+      return;
+    }
+
+    if (typeof newInitialPassword !== 'string' || !newInitialPassword) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'A new initial password is required.' },
+      });
+      return;
+    }
+
+    const complexity = validatePasswordComplexity(newInitialPassword);
+    if (!complexity.isValid) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'WEAK_PASSWORD', message: complexity.message },
+      });
+      return;
+    }
+
+    try {
+      const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+      if (!targetUser) {
+        res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
+        return;
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: targetId },
+        data: {
+          passwordHash: hashPassword(newInitialPassword),
+          requiresPasswordChange: true,
+        },
+        select: { id: true, name: true, email: true, role: true, isActive: true, requiresPasswordChange: true },
+      });
+
+      res.status(200).json({ success: true, data: updatedUser });
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'RESET_PASSWORD_ERROR', message: 'Failed to reset password.' },
+      });
+    }
+  }
+);
+
 export { app };
 export default app;
 
