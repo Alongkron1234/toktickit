@@ -1285,6 +1285,96 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
   }
 });
 
+// ==========================================
+// STAFF TICKET QUEUE (ISSUE 4)
+// ==========================================
+
+// GET /api/staff/tickets - IT Staff / Administrator Ticket Queue (Search, Filter, Sort, Pagination)
+app.get(
+  '/api/staff/tickets',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { search, status, priority, ownerId, sortBy, sortOrder, page, limit } = req.query;
+
+    try {
+      const where: any = {};
+
+      if (typeof search === 'string' && search.trim()) {
+        const term = search.trim();
+        where.OR = [
+          { ticketNumber: { contains: term, mode: 'insensitive' } },
+          { summary: { contains: term, mode: 'insensitive' } },
+        ];
+      }
+
+      if (typeof status === 'string' && Object.values(TicketStatus).includes(status.toUpperCase() as TicketStatus)) {
+        where.currentStatus = status.toUpperCase() as TicketStatus;
+      }
+
+      if (typeof priority === 'string' && Object.values(Priority).includes(priority.toUpperCase() as Priority)) {
+        where.itPriority = priority.toUpperCase() as Priority;
+      }
+
+      if (typeof ownerId === 'string' && ownerId.trim()) {
+        if (ownerId.trim().toLowerCase() === 'unassigned') {
+          where.ownerId = null;
+        } else {
+          const ownerIdNum = parseInt(ownerId, 10);
+          if (!isNaN(ownerIdNum)) {
+            where.ownerId = ownerIdNum;
+          }
+        }
+      }
+
+      const validSortFields = ['createdAt', 'updatedAt', 'ticketNumber', 'itPriority', 'currentStatus'];
+      const sortField = validSortFields.includes(sortBy as string) ? (sortBy as string) : 'createdAt';
+      const sortDirection = (sortOrder as string)?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 10));
+      const skip = (pageNum - 1) * limitNum;
+
+      const [total, tickets] = await prisma.$transaction([
+        prisma.ticket.count({ where }),
+        prisma.ticket.findMany({
+          where,
+          orderBy: { [sortField]: sortDirection },
+          skip,
+          take: limitNum,
+          include: {
+            requester: { select: { id: true, name: true, email: true } },
+            owner: { select: { id: true, name: true, email: true } },
+            category: { select: { id: true, name: true } },
+            relatedSystem: { select: { id: true, name: true } },
+          },
+        }),
+      ]);
+
+      const totalPages = Math.ceil(total / limitNum) || 1;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          tickets,
+          pagination: {
+            total,
+            page: pageNum,
+            totalPages,
+            limit: limitNum,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching staff ticket queue:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'FETCH_STAFF_QUEUE_ERROR', message: 'Failed to fetch ticket queue.' },
+      });
+    }
+  }
+);
+
 export { app };
 export default app;
 
