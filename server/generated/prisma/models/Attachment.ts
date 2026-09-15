@@ -522,10 +522,6 @@ export type AttachmentUncheckedUpdateManyWithoutTicketNestedInput = {
   deleteMany?: Prisma.AttachmentScalarWhereInput | Prisma.AttachmentScalarWhereInput[]
 }
 
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
-}
-
 export type AttachmentCreateWithoutTicketInput = {
   originalName: string
   storedName: string

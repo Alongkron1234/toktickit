@@ -895,7 +895,7 @@ app.post('/api/tickets/:id/attachments', requireRequesterHeader, (req: Authentic
 });
 
 // GET /api/attachments/:id/download - Download Active Attachment File (Issue 8 - BR-22)
-app.get('/api/attachments/:id/download', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/attachments/:id/download', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const attachmentId = parseInt(req.params.id, 10);
   if (isNaN(attachmentId)) {
     res.status(400).json({
@@ -926,8 +926,8 @@ app.get('/api/attachments/:id/download', requireRequesterHeader, async (req: Aut
     const mimeType = attachment.mimeType ?? attachment.mimetype;
     const requesterId = attachment.requesterId ?? attachment.requesterid;
 
-    // Ownership Check
-    if (requesterId !== req.currentRequester!.id) {
+    // Ownership Check. IT Staff/Administrator may download attachments on any ticket (BR-06).
+    if (req.user!.role === 'REQUESTER' && requesterId !== req.user!.id) {
       res.status(403).json({
         success: false,
         error: { code: 'FORBIDDEN_ATTACHMENT_ACCESS', message: 'You do not own this attachment.' },
@@ -1074,7 +1074,7 @@ async function findTicketByIdOrNumber(idOrNum: string) {
 }
 
 // GET /api/tickets/:id/comments - List Public Comments (Issue 3 - FR-08, BR-04)
-app.get('/api/tickets/:id/comments', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/tickets/:id/comments', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const ticketParam = req.params.id;
 
   try {
@@ -1088,8 +1088,9 @@ app.get('/api/tickets/:id/comments', requireRequesterHeader, async (req: Authent
       return;
     }
 
-    // Requester Ownership Check (Masked 404 if not owned)
-    if (ticket.requesterId !== req.currentRequester!.id) {
+    // Requester Ownership Check (Masked 404 if not owned). IT Staff/Administrator
+    // may view Public Comments on any ticket (BR-06).
+    if (req.user!.role === 'REQUESTER' && ticket.requesterId !== req.user!.id) {
       res.status(404).json({
         success: false,
         error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
@@ -1121,7 +1122,7 @@ app.get('/api/tickets/:id/comments', requireRequesterHeader, async (req: Authent
 });
 
 // POST /api/tickets/:id/comments - Create Public Comment & Problem Appears Resolved Signal (Issue 3 - FR-08, FR-10, BR-05)
-app.post('/api/tickets/:id/comments', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/tickets/:id/comments', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const ticketParam = req.params.id;
   const { body, content, appearsResolved } = req.body;
   const commentText = typeof body === 'string' ? body : typeof content === 'string' ? content : '';
@@ -1149,8 +1150,9 @@ app.post('/api/tickets/:id/comments', requireRequesterHeader, async (req: Authen
       return;
     }
 
-    // Requester Ownership Check (Masked 404)
-    if (ticket.requesterId !== req.currentRequester!.id) {
+    // Requester Ownership Check (Masked 404). IT Staff/Administrator may post
+    // Public Comments on any ticket (BR-06).
+    if (req.user!.role === 'REQUESTER' && ticket.requesterId !== req.user!.id) {
       res.status(404).json({
         success: false,
         error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
@@ -1162,7 +1164,7 @@ app.post('/api/tickets/:id/comments', requireRequesterHeader, async (req: Authen
     const newComment = await prisma.publicComment.create({
       data: {
         ticketId: ticket.id,
-        authorId: req.currentRequester!.id,
+        authorId: req.user!.id,
         content: trimmedBody,
       },
       include: {
@@ -1172,9 +1174,10 @@ app.post('/api/tickets/:id/comments', requireRequesterHeader, async (req: Authen
       },
     });
 
-    // Handle Problem-Appears-Resolved Signal (FR-10, BR-05)
+    // Handle Problem-Appears-Resolved Signal (FR-10, BR-05) — Requester only;
+    // IT Staff/Administrator formally resolve/close via the status workflow instead.
     let updatedAppearsResolvedAt: Date | null = null;
-    if (appearsResolved === true) {
+    if (appearsResolved === true && req.user!.role === 'REQUESTER') {
       updatedAppearsResolvedAt = new Date();
       await prisma.ticket.update({
         where: { id: ticket.id },
@@ -1370,6 +1373,329 @@ app.get(
       res.status(500).json({
         success: false,
         error: { code: 'FETCH_STAFF_QUEUE_ERROR', message: 'Failed to fetch ticket queue.' },
+      });
+    }
+  }
+);
+
+// ==========================================
+// STAFF TICKET OPERATIONS (ISSUE 5)
+// ==========================================
+
+const VALID_TRANSITIONS: Record<string, TicketStatus[]> = {
+  NEW: [TicketStatus.OPEN, TicketStatus.CANCELLED],
+  OPEN: [TicketStatus.IN_PROGRESS, TicketStatus.CANCELLED],
+  IN_PROGRESS: [TicketStatus.WAITING_FOR_REQUESTER, TicketStatus.RESOLVED, TicketStatus.CANCELLED],
+  WAITING_FOR_REQUESTER: [TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CANCELLED],
+  RESOLVED: [TicketStatus.CLOSED],
+  REOPENED: [TicketStatus.IN_PROGRESS, TicketStatus.OPEN, TicketStatus.CANCELLED],
+  CLOSED: [],
+  CANCELLED: [],
+};
+
+// GET /api/staff/tickets/:id - Retrieve One Ticket for IT Staff Operations
+app.get(
+  '/api/staff/tickets/:id',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          OR: [
+            { id: isNaN(parseInt(req.params.id, 10)) ? -1 : parseInt(req.params.id, 10) },
+            { ticketNumber: req.params.id },
+          ],
+        },
+        include: {
+          requester: { select: { id: true, name: true, email: true } },
+          owner: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+          relatedSystem: { select: { id: true, name: true } },
+          attachments: { orderBy: { createdAt: 'desc' } },
+        },
+      });
+
+      if (!ticket) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
+        });
+        return;
+      }
+
+      res.status(200).json({ success: true, data: ticket });
+    } catch (error) {
+      console.error('Error fetching staff ticket detail:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'FETCH_TICKET_DETAIL_ERROR', message: 'Failed to fetch ticket detail.' },
+      });
+    }
+  }
+);
+
+// GET /api/staff/members - Active IT Staff & Administrator Lookup (for Reassign Owner)
+app.get(
+  '/api/staff/members',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const members = await prisma.user.findMany({
+        where: { role: { in: [Role.IT_STAFF, Role.ADMINISTRATOR] }, isActive: true },
+        select: { id: true, name: true, email: true, role: true },
+        orderBy: { name: 'asc' },
+      });
+
+      res.status(200).json({ success: true, data: members });
+    } catch (error) {
+      console.error('Error fetching staff members:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'FETCH_MEMBERS_ERROR', message: 'Failed to fetch staff members.' },
+      });
+    }
+  }
+);
+
+// PATCH /api/staff/tickets/:id/ownership - Claim or Reassign Ticket Ownership
+app.patch(
+  '/api/staff/tickets/:id/ownership',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const ticketId = parseInt(req.params.id, 10);
+    const { ownerId } = req.body;
+    const ownerIdNum = parseInt(ownerId, 10);
+
+    if (isNaN(ticketId)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
+      return;
+    }
+    if (isNaN(ownerIdNum)) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'ownerId is required and must be an integer.' } });
+      return;
+    }
+
+    try {
+      const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+
+      // Ownership Authority Check (BR-07): target must be an active IT_STAFF or ADMINISTRATOR.
+      const targetUser = await prisma.user.findUnique({ where: { id: ownerIdNum } });
+      if (!targetUser || !targetUser.isActive || (targetUser.role !== Role.IT_STAFF && targetUser.role !== Role.ADMINISTRATOR)) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_OWNER', message: 'Ticket owner must be an active IT Staff or Administrator account.' },
+        });
+        return;
+      }
+
+      const updatedTicket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { ownerId: ownerIdNum },
+        include: {
+          owner: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      res.status(200).json({ success: true, data: updatedTicket });
+    } catch (error) {
+      console.error('Error updating ticket ownership:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_OWNERSHIP_ERROR', message: 'Failed to update ticket ownership.' },
+      });
+    }
+  }
+);
+
+// PATCH /api/staff/tickets/:id/priority - Update IT Priority
+app.patch(
+  '/api/staff/tickets/:id/priority',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const ticketId = parseInt(req.params.id, 10);
+    const { itPriority } = req.body;
+    const normalizedPriority = typeof itPriority === 'string' ? itPriority.trim().toUpperCase() : '';
+
+    if (isNaN(ticketId)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
+      return;
+    }
+    if (!Object.values(Priority).includes(normalizedPriority as Priority)) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'itPriority must be one of LOW, MEDIUM, HIGH, CRITICAL.' },
+      });
+      return;
+    }
+
+    try {
+      const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+
+      const updatedTicket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { itPriority: normalizedPriority as Priority },
+      });
+
+      res.status(200).json({ success: true, data: updatedTicket });
+    } catch (error) {
+      console.error('Error updating IT priority:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_PRIORITY_ERROR', message: 'Failed to update IT Priority.' },
+      });
+    }
+  }
+);
+
+// PATCH /api/staff/tickets/:id/status - Permitted Ticket Status Workflow Transitions
+app.patch(
+  '/api/staff/tickets/:id/status',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const ticketId = parseInt(req.params.id, 10);
+    const { status, resolutionSummary } = req.body;
+    const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+
+    if (isNaN(ticketId)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
+      return;
+    }
+    if (!Object.values(TicketStatus).includes(requestedStatus as TicketStatus)) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'status must be a valid ticket status.' },
+      });
+      return;
+    }
+
+    try {
+      const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+
+      const permitted = VALID_TRANSITIONS[ticket.currentStatus] || [];
+      if (!permitted.includes(requestedStatus as TicketStatus)) {
+        res.status(409).json({
+          success: false,
+          error: {
+            code: 'ILLEGAL_STATUS_TRANSITION',
+            message: `Cannot transition ticket from ${ticket.currentStatus} to ${requestedStatus}.`,
+          },
+        });
+        return;
+      }
+
+      const updatedTicket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: {
+          currentStatus: requestedStatus as TicketStatus,
+          ...(typeof resolutionSummary === 'string' && resolutionSummary.trim()
+            ? { resolutionSummary: resolutionSummary.trim() }
+            : {}),
+        },
+      });
+
+      res.status(200).json({ success: true, data: updatedTicket });
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_STATUS_ERROR', message: 'Failed to update ticket status.' },
+      });
+    }
+  }
+);
+
+// GET /api/staff/tickets/:id/internal-notes - Retrieve Internal Notes (IT Staff/Admin only)
+app.get(
+  '/api/staff/tickets/:id/internal-notes',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const ticketParam = req.params.id;
+
+    try {
+      const ticket = await findTicketByIdOrNumber(ticketParam);
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+
+      const notes = await prisma.internalNote.findMany({
+        where: { ticketId: ticket.id },
+        include: { author: { select: { id: true, name: true, role: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      res.status(200).json({ success: true, data: notes });
+    } catch (error) {
+      console.error('Error fetching internal notes:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'FETCH_NOTES_ERROR', message: 'Failed to fetch internal notes.' },
+      });
+    }
+  }
+);
+
+// POST /api/staff/tickets/:id/internal-notes - Create Internal Note (IT Staff/Admin only)
+app.post(
+  '/api/staff/tickets/:id/internal-notes',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const ticketParam = req.params.id;
+    const { content } = req.body;
+    const trimmedContent = typeof content === 'string' ? content.trim() : '';
+
+    if (!trimmedContent || trimmedContent.length < 1 || trimmedContent.length > 2000) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Note content is required and must be between 1 and 2000 characters after trimming.',
+        },
+      });
+      return;
+    }
+
+    try {
+      const ticket = await findTicketByIdOrNumber(ticketParam);
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+
+      const newNote = await prisma.internalNote.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: req.user!.id,
+          content: trimmedContent,
+        },
+        include: { author: { select: { id: true, name: true, role: true } } },
+      });
+
+      res.status(201).json({ success: true, data: newNote });
+    } catch (error) {
+      console.error('Error posting internal note:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'POST_NOTE_ERROR', message: 'Failed to post internal note.' },
       });
     }
   }
