@@ -53,7 +53,7 @@ describe('StaffTicketQueue UI Tests (Lab 3 - Issue 4)', () => {
     vi.restoreAllMocks();
   });
 
-  const renderWithAuth = (ui: React.ReactNode) => {
+  const renderWithAuth = (ui: React.ReactNode, overrides: { logout?: () => Promise<void> } = {}) => {
     return render(
       <AuthContext.Provider
         value={{
@@ -61,7 +61,7 @@ describe('StaffTicketQueue UI Tests (Lab 3 - Issue 4)', () => {
           token: 'mock-staff-token',
           isLoading: false,
           login: vi.fn(),
-          logout: vi.fn(),
+          logout: overrides.logout || vi.fn(),
           changePassword: vi.fn(),
           refreshUser: vi.fn(),
         }}
@@ -155,5 +155,40 @@ describe('StaffTicketQueue UI Tests (Lab 3 - Issue 4)', () => {
     fireEvent.click(viewButtons[0]);
 
     expect(onSelectTicket).toHaveBeenCalledWith(1);
+  });
+
+  it('401 Unauthorized: signs the user out instead of showing a generic error', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: false, error: { code: 'UNAUTHORIZED', message: 'Session expired.' } }), { status: 401 })
+    );
+    const mockLogout = vi.fn().mockResolvedValue(undefined);
+
+    renderWithAuth(<StaffTicketQueue />, { logout: mockLogout });
+
+    await waitFor(() => {
+      expect(mockLogout).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText('Error loading ticket queue')).not.toBeInTheDocument();
+    expect(screen.queryByText('Access Denied')).not.toBeInTheDocument();
+  });
+
+  it('403 Forbidden: shows a distinct Access Denied message instead of the generic error state', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: false, error: { code: 'FORBIDDEN_ACCESS', message: 'Access denied.' } }), { status: 403 })
+    );
+    const mockLogout = vi.fn().mockResolvedValue(undefined);
+
+    renderWithAuth(<StaffTicketQueue />, { logout: mockLogout });
+
+    await waitFor(() => {
+      expect(screen.getByText('Access Denied')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Error loading ticket queue')).not.toBeInTheDocument();
+    expect(mockLogout).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Out' }));
+    expect(mockLogout).toHaveBeenCalled();
   });
 });

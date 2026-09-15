@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RequesterProvider, useRequester } from './context/RequesterContext';
 import { LoginScreen } from './components/LoginScreen';
@@ -11,21 +11,26 @@ import { StaffTicketQueue } from './components/StaffTicketQueue';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
+type NavKey = 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
+
+// Which nav destinations are valid for each role, and the default to fall back to
+// when the current one isn't (e.g. right after login/logout/switching accounts).
+const ALLOWED_NAVS_BY_ROLE: Record<string, NavKey[]> = {
+  REQUESTER: ['my-tickets', 'create-ticket'],
+  IT_STAFF: ['staff-queue'],
+  ADMINISTRATOR: ['staff-queue', 'user-management'],
+};
+const DEFAULT_NAV_BY_ROLE: Record<string, NavKey> = {
+  REQUESTER: 'my-tickets',
+  IT_STAFF: 'staff-queue',
+  ADMINISTRATOR: 'staff-queue',
+};
+
 const MainAppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
   const { currentRequester } = useRequester();
-  const [activeNav, setActiveNav] = useState<'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management'>('my-tickets');
+  const [activeNav, setActiveNav] = useState<NavKey>('my-tickets');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
-
-  if (isLoading) {
-    return (
-      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-        <div className="spinner-border text-success" role="status">
-          <span className="visually-hidden">Loading application...</span>
-        </div>
-      </div>
-    );
-  }
 
   // Active user identity either from AuthContext or RequesterContext (Lab 2 compatibility)
   const activeUser = user || (currentRequester ? {
@@ -36,6 +41,35 @@ const MainAppContent: React.FC = () => {
     isActive: true,
     requiresPasswordChange: false,
   } : null);
+
+  // `activeNav`/`selectedTicketId` live in this component and survive logout (it never
+  // unmounts, it just swaps in <LoginScreen/>). Without this, logging out of one role's
+  // tab (e.g. IT Staff's "staff-queue") and into a role that doesn't have that tab
+  // (e.g. Requester) leaves `activeNav` pointing at a destination none of the role
+  // checks below match, and <main> renders nothing at all.
+  useEffect(() => {
+    if (!activeUser) {
+      setActiveNav('my-tickets');
+      setSelectedTicketId(null);
+      return;
+    }
+    const allowed = ALLOWED_NAVS_BY_ROLE[activeUser.role] || [];
+    if (!allowed.includes(activeNav)) {
+      setActiveNav(DEFAULT_NAV_BY_ROLE[activeUser.role] || 'my-tickets');
+      setSelectedTicketId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUser?.id, activeUser?.role]);
+
+  if (isLoading) {
+    return (
+      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+        <div className="spinner-border text-success" role="status">
+          <span className="visually-hidden">Loading application...</span>
+        </div>
+      </div>
+    );
+  }
 
   // 1. Unauthenticated Guard -> Render Login Screen or Requester Selection Screen for Lab 2 fallback
   if (!activeUser) {

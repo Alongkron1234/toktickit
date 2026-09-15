@@ -52,7 +52,7 @@ const STATUS_OPTIONS = ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', '
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTicket }) => {
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [status, setStatus] = useState('');
@@ -67,6 +67,7 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
   const [pagination, setPagination] = useState<StaffQueuePagination>({ total: 0, page: 1, totalPages: 1, limit: 10 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     if (!token) {
@@ -75,6 +76,7 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
     }
     setLoading(true);
     setError(null);
+    setForbidden(false);
 
     const q = new URLSearchParams();
     if (searchTerm.trim()) q.set('search', searchTerm.trim());
@@ -91,6 +93,22 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
       const res = await fetch(`/api/staff/tickets?${q.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // Session expired or invalid — sign out and let the app fall back to the Login screen.
+      if (res.status === 401) {
+        await logout();
+        return;
+      }
+
+      // Authenticated but no longer permitted (e.g. role changed or account deactivated
+      // mid-session) — session is still valid, so show a distinct message instead of
+      // treating it like a generic/transient failure.
+      if (res.status === 403) {
+        setForbidden(true);
+        setTickets([]);
+        return;
+      }
+
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to fetch ticket queue.');
 
@@ -101,7 +119,7 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
     } finally {
       setLoading(false);
     }
-  }, [token, user, searchTerm, status, priority, ownerFilter, sortBy, sortOrder, page, limit]);
+  }, [token, user, searchTerm, status, priority, ownerFilter, sortBy, sortOrder, page, limit, logout]);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
 
@@ -213,6 +231,23 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
             <span className="visually-hidden">Loading...</span>
           </div>
           <p className="mt-3 text-muted small">Loading ticket queue...</p>
+        </div>
+
+      ) : forbidden ? (
+        <div className="card border-0 shadow-sm text-center py-5" style={{ borderRadius: '12px' }}>
+          <div className="py-4">
+            <div className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+              style={{ width: 64, height: 64, backgroundColor: '#FEF3C7', color: '#D97706' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+              </svg>
+            </div>
+            <h5 className="fw-bold mb-2" style={{ color: '#111827' }}>Access Denied</h5>
+            <p className="text-muted small mb-4" style={{ maxWidth: 380, margin: '0 auto 1rem' }}>
+              You no longer have permission to view the Ticket Queue. Your role or account status may have changed — please sign in again.
+            </p>
+            <button className="btn btn-outline-secondary px-4 btn-sm" onClick={logout}>Sign Out</button>
+          </div>
         </div>
 
       ) : error ? (
