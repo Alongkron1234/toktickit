@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRoleBadge } from '../utils/badges';
 
@@ -56,11 +56,14 @@ export const UserManagement: React.FC = () => {
   const getErrorMessage = (err: unknown, fallback: string): string =>
     err instanceof Error && err.message ? err.message : fallback;
 
+  const latestRequestId = useRef(0);
+
   const fetchUsers = useCallback(async () => {
     if (!token) {
       setLoading(false);
       return;
     }
+    const requestId = ++latestRequestId.current;
     setLoading(true);
     setError(null);
     setForbidden(false);
@@ -74,11 +77,17 @@ export const UserManagement: React.FC = () => {
       if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to load users.');
+      // Search/filter changes fire a fresh request while an older one may
+      // still be in flight; only the most recently issued request may apply
+      // its result, otherwise a slower unfiltered response can overwrite a
+      // faster filtered one and silently show the wrong list.
+      if (requestId !== latestRequestId.current) return;
       setUsers(result.data);
     } catch (err: unknown) {
+      if (requestId !== latestRequestId.current) return;
       setError(getErrorMessage(err, 'Unable to load users.'));
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestId.current) setLoading(false);
     }
   }, [token, authHeaders, handleUnauthorized, searchTerm, roleFilter]);
 
