@@ -2,20 +2,31 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRoleBadge } from '../utils/badges';
 
+type NavKey = 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
+
 interface HeaderProps {
-  activeNav: 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
-  onNavigate: (view: 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management') => void;
+  activeNav: NavKey;
+  onNavigate: (view: NavKey) => void;
 }
+
+// The logo/home link must land on a destination valid for the signed-in role —
+// 'my-tickets' is Requester-only and previously blanked the page for IT Staff/Admin.
+const HOME_NAV_BY_ROLE: Record<string, NavKey> = {
+  REQUESTER: 'my-tickets',
+  IT_STAFF: 'staff-queue',
+  ADMINISTRATOR: 'staff-queue',
+};
 
 export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
   const { user, logout } = useAuth();
+  const homeNav: NavKey = user ? (HOME_NAV_BY_ROLE[user.role] || 'my-tickets') : 'my-tickets';
 
   return (
     <header className="shadow-sm" style={{ backgroundColor: '#006B3C', color: '#FFFFFF' }}>
       <div className="container-fluid px-3 px-md-5 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         {/* Left Side: Brand Logo & Navigation */}
         <div className="d-flex align-items-center gap-4">
-          <div className="d-flex align-items-center gap-2 cursor-pointer" onClick={() => onNavigate('my-tickets')}>
+          <div className="d-flex align-items-center gap-2 cursor-pointer" onClick={() => onNavigate(homeNav)}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
               <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
               <path d="M8 4a.5.5 0 0 1 .5.5v3.5h3a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5v-4A.5.5 0 0 1 8 4z" />
