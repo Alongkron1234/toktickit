@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRequester } from '../context/RequesterContext';
+import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate, getPaginationPages } from '../utils/badges';
 
 export interface TicketItem {
   id: number;
@@ -82,7 +83,10 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
   }, []);
 
   const fetchTickets = useCallback(async () => {
-    if (!currentRequester) return;
+    if (!currentRequester) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -131,77 +135,6 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
 
   const sortIcon = (field: 'createdAt' | 'ticketNumber') =>
     sortField === field ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ' ↕';
-
-  // Priority pill — matches mockup exactly
-  const getPriorityPill = (p: string): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      borderRadius: '20px',
-      padding: '4px 12px',
-      fontWeight: 600,
-      fontSize: '0.78rem',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      whiteSpace: 'nowrap',
-      lineHeight: '1.2',
-    };
-    switch (p) {
-      case 'CRITICAL':
-      case 'HIGH':    return { ...base, backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA' };
-      case 'MEDIUM':  return { ...base, backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A' };
-      case 'LOW':     return { ...base, backgroundColor: '#DCFCE7', color: '#16A34A', border: '1px solid #BBF7D0' };
-      default:        return { ...base, backgroundColor: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' };
-    }
-  };
-
-  // Status pill — matches mockup exactly
-  const getStatusPill = (s: string): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      borderRadius: '20px',
-      padding: '4px 12px',
-      fontWeight: 600,
-      fontSize: '0.78rem',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      whiteSpace: 'nowrap',
-      lineHeight: '1.2',
-    };
-    switch (s) {
-      case 'NEW':         return { ...base, backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' };
-      case 'OPEN':        return { ...base, backgroundColor: '#E0F2FE', color: '#0369A1', border: '1px solid #7DD3FC' };
-      case 'IN_PROGRESS': return { ...base, backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' };
-      case 'RESOLVED':    return { ...base, backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' };
-      case 'CLOSED':      return { ...base, backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1' };
-      default:            return { ...base, backgroundColor: '#FEF9C3', color: '#CA8A04', border: '1px solid #FDE047' };
-    }
-  };
-
-  const formatStatus = (s: string) =>
-    s === 'IN_PROGRESS' ? 'In Progress' : s.charAt(0) + s.slice(1).toLowerCase();
-
-  const formatPriority = (p: string) =>
-    p.charAt(0) + p.slice(1).toLowerCase();
-
-  const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-        + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    } catch { return dateStr; }
-  };
-
-  // Smart pagination with ellipsis (matches mockup "1 2 3 4 5 … 6")
-  const getPaginationPages = (current: number, total: number): (number | '...')[] => {
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-    const pages: (number | '...')[] = [];
-    pages.push(1);
-    if (current > 3) pages.push('...');
-    for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
-    if (current < total - 2) pages.push('...');
-    pages.push(total);
-    return pages;
-  };
 
   const isFilterActive = !!(searchTerm || selectedCategory || selectedReqPriority || selectedItPriority || selectedStatus);
 

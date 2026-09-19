@@ -51,11 +51,13 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  DevelopmentRequester: 'DevelopmentRequester',
+  User: 'User',
   Category: 'Category',
   RelatedSystem: 'RelatedSystem',
   Ticket: 'Ticket',
-  Attachment: 'Attachment'
+  Attachment: 'Attachment',
+  PublicComment: 'PublicComment',
+  InternalNote: 'InternalNote'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -74,16 +76,19 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
-export const DevelopmentRequesterScalarFieldEnum = {
+export const UserScalarFieldEnum = {
   id: 'id',
   name: 'name',
   email: 'email',
+  passwordHash: 'passwordHash',
+  role: 'role',
   isActive: 'isActive',
+  requiresPasswordChange: 'requiresPasswordChange',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
-export type DevelopmentRequesterScalarFieldEnum = (typeof DevelopmentRequesterScalarFieldEnum)[keyof typeof DevelopmentRequesterScalarFieldEnum]
+export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
 
 
 export const CategoryScalarFieldEnum = {
@@ -110,6 +115,7 @@ export const TicketScalarFieldEnum = {
   id: 'id',
   ticketNumber: 'ticketNumber',
   requesterId: 'requesterId',
+  ownerId: 'ownerId',
   categoryId: 'categoryId',
   relatedSystemId: 'relatedSystemId',
   summary: 'summary',
@@ -117,6 +123,8 @@ export const TicketScalarFieldEnum = {
   requestedPriority: 'requestedPriority',
   itPriority: 'itPriority',
   currentStatus: 'currentStatus',
+  appearsResolvedAt: 'appearsResolvedAt',
+  resolutionSummary: 'resolutionSummary',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -138,6 +146,28 @@ export const AttachmentScalarFieldEnum = {
 } as const
 
 export type AttachmentScalarFieldEnum = (typeof AttachmentScalarFieldEnum)[keyof typeof AttachmentScalarFieldEnum]
+
+
+export const PublicCommentScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  authorId: 'authorId',
+  content: 'content',
+  createdAt: 'createdAt'
+} as const
+
+export type PublicCommentScalarFieldEnum = (typeof PublicCommentScalarFieldEnum)[keyof typeof PublicCommentScalarFieldEnum]
+
+
+export const InternalNoteScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  authorId: 'authorId',
+  content: 'content',
+  createdAt: 'createdAt'
+} as const
+
+export type InternalNoteScalarFieldEnum = (typeof InternalNoteScalarFieldEnum)[keyof typeof InternalNoteScalarFieldEnum]
 
 
 export const SortOrder = {

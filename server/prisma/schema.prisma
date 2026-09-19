@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,6 +8,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
 }
 
 enum Priority {
@@ -23,19 +27,31 @@ enum TicketStatus {
   NEW
   OPEN
   IN_PROGRESS
+  WAITING_FOR_REQUESTER
   RESOLVED
   CLOSED
+  REOPENED
+  CANCELLED
 }
 
-model DevelopmentRequester {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model User {
+  id                     Int      @id @default(autoincrement())
+  name                   String
+  email                  String   @unique
+  passwordHash           String
+  role                   Role     @default(REQUESTER)
+  isActive               Boolean  @default(true)
+  requiresPasswordChange Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  tickets Ticket[]
+  submittedTickets Ticket[]        @relation("TicketRequester")
+  assignedTickets  Ticket[]        @relation("TicketOwner")
+  publicComments   PublicComment[]
+  internalNotes    InternalNote[]
+
+  @@index([email])
+  @@index([role, isActive])
 }
 
 model Category {
@@ -60,6 +76,7 @@ model Ticket {
   id                Int          @id @default(autoincrement())
   ticketNumber      String       @unique
   requesterId       Int
+  ownerId           Int?
   categoryId        Int
   relatedSystemId   Int
   summary           String
@@ -67,15 +84,21 @@ model Ticket {
   requestedPriority Priority
   itPriority        Priority     @default(MEDIUM)
   currentStatus     TicketStatus @default(NEW)
+  appearsResolvedAt DateTime?
+  resolutionSummary String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  requester     DevelopmentRequester @relation(fields: [requesterId], references: [id])
-  category      Category             @relation(fields: [categoryId], references: [id])
-  relatedSystem RelatedSystem        @relation(fields: [relatedSystemId], references: [id])
-  attachments   Attachment[]
+  requester      User            @relation("TicketRequester", fields: [requesterId], references: [id])
+  owner          User?           @relation("TicketOwner", fields: [ownerId], references: [id])
+  category       Category        @relation(fields: [categoryId], references: [id])
+  relatedSystem  RelatedSystem   @relation(fields: [relatedSystemId], references: [id])
+  attachments    Attachment[]
+  publicComments PublicComment[]
+  internalNotes  InternalNote[]
 
   @@index([requesterId, createdAt])
+  @@index([ownerId, currentStatus])
   @@index([ticketNumber])
 }
 
@@ -96,3 +119,28 @@ model Attachment {
   @@index([ticketId, isRemoved])
 }
 
+model PublicComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  authorId  Int
+  content   String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model InternalNote {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  authorId  Int
+  content   String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
