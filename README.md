@@ -100,6 +100,15 @@ Start the backend and frontend development servers:
   ```
   Frontend runs on `http://localhost:5173`.
 
+### 6. Test Accounts (Local Development Only)
+The seed script creates accounts for each role. All seeded accounts share the same initial password and are for local testing only — never reuse these in a real deployment.
+
+| Role | Email | Initial Password |
+| :--- | :--- | :--- |
+| Requester | `jennifer.anderson@example.com` | `InitialPassword123!` |
+| IT Staff | `alex.thompson@toktickit.com` | `InitialPassword123!` |
+| Administrator | `john.smith@toktickit.com` | `InitialPassword123!` |
+
 ---
 
 ## 🧪 Running Automated Tests

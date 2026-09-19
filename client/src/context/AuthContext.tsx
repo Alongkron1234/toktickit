@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 export type UserRole = 'REQUESTER' | 'IT_STAFF' | 'ADMINISTRATOR';
 
@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -112,9 +112,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: 'Network error. Could not connect to authentication server.',
       };
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       if (token) {
         await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -130,9 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('toktickit_user');
       localStorage.removeItem('toktickit_token');
     }
-  };
+  }, [token]);
 
-  const changePassword = async (currentPassword: string, newPassword: string, confirmPassword: string) => {
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string, confirmPassword: string) => {
     if (!token) {
       return { success: false, error: 'Authentication token missing.' };
     }
@@ -167,9 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       return { success: false, error: 'Network error during password change.' };
     }
-  };
+  }, [token, user]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (!token) return;
     try {
       const res = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -183,23 +183,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Error refreshing user:', err);
     }
-  };
+  }, [token]);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isLoading,
-        login,
-        logout,
-        changePassword,
-        refreshUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, token, isLoading, login, logout, changePassword, refreshUser }),
+    [user, token, isLoading, login, logout, changePassword, refreshUser]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

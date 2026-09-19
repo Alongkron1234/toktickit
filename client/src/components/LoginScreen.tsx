@@ -125,17 +125,6 @@ export const LoginScreen: React.FC = () => {
             )}
           </button>
         </form>
-
-        {/* Quick Test Credential Hint */}
-        <div className="mt-4 pt-3 border-top text-center text-muted" style={{ fontSize: '0.8rem' }}>
-          <div className="fw-semibold mb-1">Seed Test Credentials:</div>
-          <div>Initial Password: <code>InitialPassword123!</code></div>
-          <div className="mt-1">
-            <strong>Requester:</strong> <code>jennifer.anderson@example.com</code><br />
-            <strong>IT Staff:</strong> <code>alex.thompson@toktickit.com</code><br />
-            <strong>Admin:</strong> <code>john.smith@toktickit.com</code>
-          </div>
-        </div>
       </div>
     </div>
   );
