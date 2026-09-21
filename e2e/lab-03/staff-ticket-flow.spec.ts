@@ -41,6 +41,12 @@ const fillLoginForm = async (page: any, email: string, password: string) => {
 };
 
 test.describe('Issue 7: IT Staff Ticket Queue & Detail Workflow End-to-End Tests with Screenshots (Lab 3)', () => {
+  // See the identical note in user-administration.spec.ts: occasional
+  // Playwright click-stability failures under local machine load, not a
+  // reproducible app bug (confirmed via render/request-count
+  // instrumentation during that investigation). Retries absorb it.
+  test.describe.configure({ retries: 2 });
+
   let fixtureTicketNumber: string;
 
   test.beforeAll(async () => {

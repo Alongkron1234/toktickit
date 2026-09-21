@@ -46,18 +46,26 @@ const ensureDir = (dirPath: string) => {
 
 const screenshotsBase = path.resolve(__dirname, '../../artifacts/lab-03/screenshots/user-management');
 
-const captureResponsiveScreenshots = async (page: any, baseName: string) => {
+// `fullPage` must be false whenever a modal is open: the modal backdrop is
+// `position: fixed` (viewport-relative), but a fullPage capture stitches
+// together the whole scrollable document — which is taller than one
+// viewport once the user table has many rows — so the backdrop only dims
+// the first screen's worth and leaves the rest of the captured image
+// looking like an ungrayed strip below the modal. A modal is designed to
+// fit one viewport anyway, so a plain (non-fullPage) shot is the correct
+// capture for it, not just a workaround.
+const captureResponsiveScreenshots = async (page: any, baseName: string, fullPage = true) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(screenshotsBase, `desktop-${baseName}.png`), fullPage: true });
+  await page.screenshot({ path: path.join(screenshotsBase, `desktop-${baseName}.png`), fullPage });
 
   await page.setViewportSize({ width: 834, height: 1194 });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(screenshotsBase, `tablet-${baseName}.png`), fullPage: true });
+  await page.screenshot({ path: path.join(screenshotsBase, `tablet-${baseName}.png`), fullPage });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(screenshotsBase, `mobile-${baseName}.png`), fullPage: true });
+  await page.screenshot({ path: path.join(screenshotsBase, `mobile-${baseName}.png`), fullPage });
 
   await page.setViewportSize({ width: 1440, height: 900 });
 };
@@ -160,7 +168,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
 
     // --- Create ---
     await page.click('text=+ Create User');
-    await captureResponsiveScreenshots(page, 'create-user-modal');
+    await captureResponsiveScreenshots(page, 'create-user-modal', false);
 
     const newEmail = `e2e.admin.created.${Date.now()}@toktickit.com`;
     await page.fill('#user-form-name', 'E2E Created User');
@@ -179,7 +187,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
     await page.fill('#user-form-password', 'InitialPassword123!');
     await page.click('button:has-text("Save User")');
     await expect(page.locator('body')).toContainText(/already exists/i);
-    await captureResponsiveScreenshots(page, 'duplicate-email-error');
+    await captureResponsiveScreenshots(page, 'duplicate-email-error', false);
     await page.click('button:has-text("Cancel")');
 
     // --- Edit ---
@@ -191,7 +199,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
 
     // --- Reset Password ---
     await clickRowAction(page, newEmail, 'Reset Password');
-    await captureResponsiveScreenshots(page, 'reset-password-modal');
+    await captureResponsiveScreenshots(page, 'reset-password-modal', false);
     await page.fill('#reset-password-input', 'BrandNewInitialPassword123!');
     await page.click('button[type="submit"]:has-text("Reset Password")');
     await expect(page.locator('.modal')).toHaveCount(0);
@@ -210,7 +218,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
     // Self-deactivation: the Active toggle is disabled client-side on your own row.
     await clickRowAction(page, 'john.smith@toktickit.com', 'Edit');
     await expect(page.locator('#user-form-active')).toBeDisabled();
-    await captureResponsiveScreenshots(page, 'self-deactivation-guard');
+    await captureResponsiveScreenshots(page, 'self-deactivation-guard', false);
     await page.click('button:has-text("Cancel")');
     // Clear the search filter — left over from the check above, it would hide
     // the newly created admin from the list right after creation below.
@@ -279,7 +287,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
       await page.selectOption('#user-form-role', 'IT_STAFF');
       await page.click('button:has-text("Save User")');
       await expect(page.locator('body')).toContainText(/at least one active Administrator/i);
-      await captureResponsiveScreenshots(page, 'last-admin-guard');
+      await captureResponsiveScreenshots(page, 'last-admin-guard', false);
     } finally {
       // Deliberately not an API call: if the guard above didn't fire as
       // expected, soleAdminToken may already be demoted and rejected by

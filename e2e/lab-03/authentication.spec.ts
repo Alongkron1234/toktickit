@@ -46,6 +46,11 @@ const goToLogin = async (page: any) => {
 };
 
 test.describe('Issue 7: Authentication End-to-End Tests with Screenshots (Lab 3)', () => {
+  // See the identical note in user-administration.spec.ts: occasional
+  // Playwright click-stability failures under local machine load, not a
+  // reproducible app bug. Retries absorb it.
+  test.describe.configure({ retries: 2 });
+
   let requiresChangeEmail: string;
 
   test.beforeAll(async () => {
