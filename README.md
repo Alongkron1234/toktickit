@@ -1,6 +1,6 @@
 # TokTickIT · Full-Stack IT Service Desk
 
-TokTickIT is an IT service desk web application for handling Account & Access, Hardware, Software, and Network support requests. This repository contains the Lab 2 (Sprint 2) full-stack implementation built strictly according to the **Zen Green** visual design system, featuring simulated identity context switching, automated ticket generation, paginated ticket management, read-only ticket details, and secure attachment lifecycle management with soft removal.
+TokTickIT is an IT service desk web application for handling Account & Access, Hardware, Software, and Network support requests. This repository contains the Lab 3 (Sprint 3) full-stack implementation built strictly according to the **Zen Green** visual design system. It replaces Lab 2's simulated Development Requester selector with real email/password authentication and role-based authorization for three roles — **Requester**, **IT Staff**, and **Administrator** — and adds an operational IT Staff ticket workflow and a minimalist Administrator user management screen, on top of the Lab 2 ticket creation, listing, and attachment lifecycle features.
 
 ---
 
@@ -9,8 +9,9 @@ TokTickIT is an IT service desk web application for handling Account & Access, H
 - **Frontend**: React, TypeScript, Vite, Bootstrap 5, Zen Green Design System
 - **Backend**: Node.js, Express, TypeScript
 - **Database & ORM**: PostgreSQL, Prisma ORM
+- **Auth**: JWT-based sessions, bcrypt password hashing, server-side role-based authorization
 - **Testing**: Vitest (Unit/Component), Supertest (API), Playwright (E2E)
-- **Workflow**: Git Flow (`main` <- `lab2-staging` <- `feature/*`), GitHub Projects
+- **Workflow**: Git Flow (`main` <- `lab3-staging` <- `feature/*`), GitHub Projects
 
 ---
 
@@ -19,16 +20,21 @@ TokTickIT is an IT service desk web application for handling Account & Access, H
 ```
 toktickit/
 ├── client/          # React + Vite frontend
-│   └── src/tests/   # UI component tests (Vitest)
+│   └── src/tests/   # UI component tests (Vitest), incl. lab-03/
 ├── server/          # Node.js + Express + Prisma backend
 │   ├── prisma/      # Prisma schema, migrations, and seed scripts
 │   ├── src/         # Express server source code
-│   └── tests/       # API integration tests (Supertest)
-├── e2e/             # Playwright E2E test suite & screenshot generator
+│   ├── scripts/     # One-off maintenance/E2E-support scripts
+│   └── tests/       # API integration tests (Supertest), incl. lab-03/
+├── e2e/             # Playwright E2E specs (lab-02/, lab-03/)
+├── playwright.config.ts  # Playwright config (repo root; testDir: ./e2e)
 ├── docs/
 │   ├── lab-01/      # Lab 1 documentation
-│   └── lab-02/      # Lab 2 documentation (specification.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
-├── artifacts/       # Lab 2 screenshots & evidence outputs
+│   ├── lab-02/      # Lab 2 documentation (specification.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
+│   └── lab-03/      # Lab 3 documentation (specification.md, api-spec.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
+├── artifacts/
+│   ├── lab-02/screenshots/  # Lab 2 responsive screenshots & evidence
+│   └── lab-03/screenshots/  # Lab 3 responsive screenshots (authentication, staff-queue, staff-ticket-detail, user-management)
 ├── .gitignore
 └── README.md
 ```
@@ -44,11 +50,14 @@ Ensure you have the following installed on your system:
 - **PostgreSQL**: v14+ (or Prisma Local Postgres)
 
 ### 2. Installation
-Clone the repository and install dependencies inside `server`, `client`, and `e2e`:
+Clone the repository and install dependencies at the repo root (E2E/Playwright), `server`, and `client`:
 ```bash
 # Clone the repository
 git clone https://github.com/Alongkron1234/toktickit.git
 cd toktickit
+
+# Install root dependencies (Playwright E2E runner)
+npm install
 
 # Install server dependencies
 cd server && npm install
@@ -56,10 +65,6 @@ cd ..
 
 # Install client dependencies
 cd client && npm install
-cd ..
-
-# Install E2E test dependencies
-cd e2e && npm install
 cd ..
 ```
 
@@ -100,6 +105,15 @@ Start the backend and frontend development servers:
   ```
   Frontend runs on `http://localhost:5173`.
 
+### 6. Test Accounts (Local Development Only)
+The seed script creates accounts for each role. All seeded accounts share the same initial password and are for local testing only — never reuse these in a real deployment.
+
+| Role | Email | Initial Password |
+| :--- | :--- | :--- |
+| Requester | `jennifer.anderson@example.com` | `InitialPassword123!` |
+| IT Staff | `alex.thompson@toktickit.com` | `InitialPassword123!` |
+| Administrator | `john.smith@toktickit.com` | `InitialPassword123!` |
+
 ---
 
 ## 🧪 Running Automated Tests
@@ -115,23 +129,29 @@ npm test
 cd client
 npm test
 
-# 3. Run End-to-End browser tests (Playwright)
-cd e2e
+# 3. Run End-to-End browser tests (Playwright) — from the repo root
 npx playwright test
 ```
 
 ---
 
-## 📋 Features (Lab 2 / Sprint 2 Scope)
+## 📋 Features
 
-- **Development Requester Selection**: Simulated multi-user identity switching context (`X-Dev-Requester-Id`) with identity protection guards.
+### Lab 3 / Sprint 3 Scope
+- **Authentication & Role-Based Authorization**: Email/password login, bcrypt-hashed passwords, JWT sessions, mandatory password change on first login, and server-side authorization for three roles — Requester, IT Staff, Administrator.
+- **IT Staff Ticket Queue**: Shared queue with search, filters, sorting, and pagination; responsive desktop table and mobile card layouts.
+- **IT Staff Ticket Detail & Workflow**: Claim/reassign ownership, set IT Priority, permitted status transitions, Public Comments, and role-restricted Internal Notes.
+- **Public Comments & Ticket Reopening**: Requesters can post Public Comments and indicate a problem "appears resolved."
+- **Administrator User Management**: Minimalist screen to view/search/filter users, create accounts, edit basic info, assign one role, activate/deactivate, and reset initial passwords — with safety guards against self-deactivation and removing the last active Administrator.
+
+### Lab 2 / Sprint 2 Scope
 - **Create Ticket Workflow**: Form with system-generated ticket number (`TKT-YYYY-XXXXXX`), initial status `NEW`, real-time field validation, busy submit state, and error state preservation.
 - **My Tickets Workspace**:
   - Multi-criteria filtering (Category, Requested Priority, IT Priority, Current Status).
   - Partial case-insensitive search by ticket number or summary.
   - Sorting and pagination (10 items per page).
   - Responsive layouts: Desktop Data Table (≥992px), Tablet 2-row layout (768–991px), Mobile Cards (<768px).
-- **Requester Ticket Detail**: Read-only detailed ticket inspection with strict ownership access control.
+- **Requester Ticket Detail**: Detailed ticket inspection with strict ownership access control, now via the authenticated user identity rather than the retired Development Requester selector.
 - **Attachment Lifecycle & Soft Removal**:
   - File upload supporting JPG, PNG, WEBP, PDF up to 5MB (max 5 active files per ticket).
   - Active attachment downloads.

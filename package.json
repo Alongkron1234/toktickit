@@ -1,0 +1,11 @@
+{
+  "name": "toktickit-workspace",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.51.0"
+  }
+}

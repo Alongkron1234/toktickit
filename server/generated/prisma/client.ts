@@ -12,8 +12,6 @@
 
 import * as process from 'node:process'
 import * as path from 'node:path'
-import { fileURLToPath } from 'node:url'
-globalThis['__dirname'] = path.dirname(fileURLToPath(import.meta.url))
 
 import * as runtime from "@prisma/client/runtime/client"
 import * as $Enums from "./enums.js"
@@ -31,8 +29,8 @@ export * from "./enums.js"
  * const prisma = new PrismaClient({
  *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
  * })
- * // Fetch zero or more DevelopmentRequesters
- * const developmentRequesters = await prisma.developmentRequester.findMany()
+ * // Fetch zero or more Users
+ * const users = await prisma.user.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -42,10 +40,10 @@ export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts exten
 export { Prisma }
 
 /**
- * Model DevelopmentRequester
+ * Model User
  * 
  */
-export type DevelopmentRequester = Prisma.DevelopmentRequesterModel
+export type User = Prisma.UserModel
 /**
  * Model Category
  * 
@@ -66,3 +64,13 @@ export type Ticket = Prisma.TicketModel
  * 
  */
 export type Attachment = Prisma.AttachmentModel
+/**
+ * Model PublicComment
+ * 
+ */
+export type PublicComment = Prisma.PublicCommentModel
+/**
+ * Model InternalNote
+ * 
+ */
+export type InternalNote = Prisma.InternalNoteModel

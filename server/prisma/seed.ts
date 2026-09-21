@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Priority, TicketStatus } from '../generated/prisma/client';
+import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
+import bcrypt from 'bcryptjs';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -22,16 +23,29 @@ const relatedSystems = [
   'Corporate Laptop',
 ];
 
-const requesters = [
-  { name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', isActive: true },
-  { name: 'Michael Brown', email: 'michael.brown@example.com', isActive: true },
-  { name: 'Sarah Johnson', email: 'sarah.johnson@example.com', isActive: true },
-  { name: 'David Lee', email: 'david.lee@example.com', isActive: true },
-  { name: 'Robert Taylor', email: 'robert.taylor@example.com', isActive: false },
+// Seed password hash for all seed users: "InitialPassword123!"
+const DEFAULT_PASSWORD_HASH = bcrypt.hashSync('InitialPassword123!', 10);
+
+const seedUsers = [
+  // Requesters (4 active, 1 inactive)
+  { name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
+  { name: 'Michael Brown', email: 'michael.brown@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
+  { name: 'Sarah Johnson', email: 'sarah.johnson@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
+  { name: 'David Lee', email: 'david.lee@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
+  { name: 'Robert Taylor', email: 'robert.taylor@example.com', role: Role.REQUESTER, isActive: false, requiresPasswordChange: false },
+
+  // IT Staff (3 active, 1 inactive)
+  { name: 'Alex Thompson', email: 'alex.thompson@toktickit.com', role: Role.IT_STAFF, isActive: true, requiresPasswordChange: false },
+  { name: 'Kevin Patel', email: 'kevin.patel@toktickit.com', role: Role.IT_STAFF, isActive: true, requiresPasswordChange: false },
+  { name: 'Lisa Martinez', email: 'lisa.martinez@toktickit.com', role: Role.IT_STAFF, isActive: true, requiresPasswordChange: false },
+  { name: 'Emily Davis', email: 'emily.davis@toktickit.com', role: Role.IT_STAFF, isActive: false, requiresPasswordChange: false },
+
+  // Administrator (1 active)
+  { name: 'John Smith', email: 'john.smith@toktickit.com', role: Role.ADMINISTRATOR, isActive: true, requiresPasswordChange: false },
 ];
 
 async function main() {
-  console.log('--- Seeding Database ---');
+  console.log('--- Seeding Database for Lab 3 ---');
 
   // 1. Seed Categories (Idempotent via upsert)
   console.log('Seeding Categories...');
@@ -59,25 +73,35 @@ async function main() {
     console.log(`  - Related System: ${sys.name} (ID: ${sys.id})`);
   }
 
-  // 3. Seed Development Requesters (Idempotent via upsert)
-  console.log('Seeding Development Requesters...');
-  const seededRequesters: Record<string, number> = {};
-  for (const reqData of requesters) {
-    const req = await prisma.developmentRequester.upsert({
-      where: { email: reqData.email },
-      update: { name: reqData.name, isActive: reqData.isActive },
-      create: reqData,
+  // 3. Seed Users (Idempotent via upsert)
+  console.log('Seeding Users...');
+  const seededUsers: Record<string, number> = {};
+  for (const uData of seedUsers) {
+    const user = await prisma.user.upsert({
+      where: { email: uData.email },
+      update: {
+        name: uData.name,
+        role: uData.role,
+        isActive: uData.isActive,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+        requiresPasswordChange: uData.requiresPasswordChange,
+      },
+      create: {
+        ...uData,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+      },
     });
-    seededRequesters[reqData.name] = req.id;
-    console.log(`  - Requester: ${req.name} (${req.email}) [Active: ${req.isActive}] (ID: ${req.id})`);
+    seededUsers[uData.name] = user.id;
+    console.log(`  - User: ${user.name} (${user.email}) [Role: ${user.role}, Active: ${user.isActive}] (ID: ${user.id})`);
   }
 
-  // 4. Seed Sample Initial Tickets (Idempotent via upsert on ticketNumber)
+  // 4. Seed Sample Tickets (Idempotent via upsert on ticketNumber)
   console.log('Seeding Sample Tickets...');
   const sampleTickets = [
     {
-      ticketNumber: 'TKT-2025-001234',
-      requesterId: seededRequesters['Jennifer Anderson'],
+      ticketNumber: 'TKT-2026-001234',
+      requesterId: seededUsers['Jennifer Anderson'],
+      ownerId: seededUsers['Alex Thompson'],
       categoryId: seededCategories['Hardware'],
       relatedSystemId: seededSystems['Corporate Laptop'],
       summary: 'Laptop battery drains quickly',
@@ -87,8 +111,9 @@ async function main() {
       currentStatus: TicketStatus.IN_PROGRESS,
     },
     {
-      ticketNumber: 'TKT-2025-001233',
-      requesterId: seededRequesters['Sarah Johnson'],
+      ticketNumber: 'TKT-2026-001233',
+      requesterId: seededUsers['Sarah Johnson'],
+      ownerId: null,
       categoryId: seededCategories['Network'],
       relatedSystemId: seededSystems['VPN'],
       summary: 'Cannot connect to VPN',
@@ -98,8 +123,9 @@ async function main() {
       currentStatus: TicketStatus.OPEN,
     },
     {
-      ticketNumber: 'TKT-2025-001232',
-      requesterId: seededRequesters['David Lee'],
+      ticketNumber: 'TKT-2026-001232',
+      requesterId: seededUsers['David Lee'],
+      ownerId: seededUsers['Kevin Patel'],
       categoryId: seededCategories['Software'],
       relatedSystemId: seededSystems['Email'],
       summary: 'Email not syncing on mobile',
@@ -109,8 +135,9 @@ async function main() {
       currentStatus: TicketStatus.IN_PROGRESS,
     },
     {
-      ticketNumber: 'TKT-2025-001231',
-      requesterId: seededRequesters['Jennifer Anderson'],
+      ticketNumber: 'TKT-2026-001231',
+      requesterId: seededUsers['Jennifer Anderson'],
+      ownerId: seededUsers['Lisa Martinez'],
       categoryId: seededCategories['Account and Access'],
       relatedSystemId: seededSystems['LEB2 App'],
       summary: 'New employee setup request',
@@ -120,8 +147,9 @@ async function main() {
       currentStatus: TicketStatus.RESOLVED,
     },
     {
-      ticketNumber: 'TKT-2025-001230',
-      requesterId: seededRequesters['Michael Brown'],
+      ticketNumber: 'TKT-2026-001230',
+      requesterId: seededUsers['Michael Brown'],
+      ownerId: null,
       categoryId: seededCategories['Hardware'],
       relatedSystemId: seededSystems['Printer'],
       summary: 'Printer keeps showing offline',
@@ -141,6 +169,7 @@ async function main() {
         requestedPriority: tData.requestedPriority,
         itPriority: tData.itPriority,
         currentStatus: tData.currentStatus,
+        ownerId: tData.ownerId,
       },
       create: tData,
     });
@@ -149,7 +178,7 @@ async function main() {
 
   // 5. Seed Sample Attachment
   console.log('Seeding Sample Attachments...');
-  const t1234 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2025-001234' } });
+  const t1234 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-001234' } });
   if (t1234) {
     await prisma.attachment.upsert({
       where: { storedName: 'sample-battery-report-uuid-0001.pdf' },
@@ -163,7 +192,37 @@ async function main() {
         isRemoved: false,
       },
     });
-    console.log('  - Attachment sample-battery-report-uuid-0001.pdf seeded for TKT-2025-001234');
+    console.log('  - Attachment sample-battery-report-uuid-0001.pdf seeded for TKT-2026-001234');
+  }
+
+  // 6. Seed Sample Public Comments & Internal Notes
+  if (t1234) {
+    console.log('Seeding Sample Comments and Notes...');
+    await prisma.publicComment.create({
+      data: {
+        ticketId: t1234.id,
+        authorId: seededUsers['Jennifer Anderson'],
+        content: 'Just adding that this issue occurs even when I close all applications.',
+        createdAt: new Date('2026-05-12T09:20:00Z'),
+      },
+    });
+    await prisma.publicComment.create({
+      data: {
+        ticketId: t1234.id,
+        authorId: seededUsers['Alex Thompson'],
+        content: 'We are investigating the issue on your device. We will update you shortly.',
+        createdAt: new Date('2026-05-13T10:30:00Z'),
+      },
+    });
+    await prisma.internalNote.create({
+      data: {
+        ticketId: t1234.id,
+        authorId: seededUsers['Alex Thompson'],
+        content: 'Ran battery health check. Health capacity is at 45%. Recommended replacement battery part #BAT-994.',
+        createdAt: new Date('2026-05-13T10:45:00Z'),
+      },
+    });
+    console.log('  - Public Comments and Internal Note seeded for TKT-2026-001234');
   }
 
   console.log('--- Seeding completed successfully ---');
@@ -177,4 +236,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
