@@ -35,6 +35,7 @@
 | `feat/lab-03-e2e-and-docs` | https://github.com/Alongkron1234/toktickit/pull/51 | ในส่วนของหน้า UI ตรง Log in ควรไม่ต้องเเสดงในส่วนของข้อความด้านล่างที่เป็น Seed Test Credentials นะครับยังไงรบกวนเเก้ด้วยครับ หรือถ้าคิดว่ามีไว้ดีกว่ายังไงมาเเลกเปลี่ยนความคิดเห็นกันได้ครับ👀 | ทำการแก้ไขตามทีี่เพื่อนบอกคือลบ Seed Test Credentials ออกจากหน้า UI | Approved |
 | `fix/root-package-json-and-readme` | https://github.com/Alongkron1234/toktickit/pull/53 | ผ่านได้เลยครับ branch นี้ | ตรวจสอบความเรียบร้อย | Approved |
 | `fix/lab3-e2e-screenshots` | https://github.com/Alongkron1234/toktickit/pull/56 | เรียบร้อยเเล้วครับ คุณ Ball | ตรวจสอบความเรียบร้อย | Approved |
+| `lab3-staging` -> `main` | https://github.com/Alongkron1234/toktickit/pull/54 | ขออภัยที่ไม่ได้ดูตรง artifact ให้ตั้งเเต่เเรกครับ พอมาตรวจอีกทีพบว่ามีข้อความ seed test อยู่เลย ยังไงไปเเคปภาพใหม่ด้วยนะครับ | ลบ Seed Test Credentials ออกจากหน้า UI และรัน E2E ใหม่เพื่อ refresh screenshot ทั้งหมดให้ตรงกับ UI ปัจจุบัน (ผ่าน PR #53 และ #56) | Approved |
 
 ---
 
