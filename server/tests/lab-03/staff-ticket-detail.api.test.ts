@@ -185,33 +185,41 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
     });
   });
 
-  describe('PATCH /api/staff/tickets/:id/status - permitted workflow transitions', () => {
+    // Lab 4: status changes require expectedVersion (BR-13), so read the current version first.
+  const currentVersion = async (): Promise<number> => {
+    const res = await request(app)
+      .get(`/api/staff/tickets/${ticketId}`)
+      .set('Authorization', `Bearer ${staffToken}`);
+    return res.body.data.version;
+  };
+
+describe('PATCH /api/staff/tickets/:id/status - permitted workflow transitions', () => {
     it('walks a ticket through NEW -> OPEN -> IN_PROGRESS -> WAITING_FOR_REQUESTER -> RESOLVED -> CLOSED', async () => {
       let res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'OPEN' });
+        .send({ expectedVersion: await currentVersion(), status: 'OPEN' });
       expect(res.status).toBe(200);
       expect(res.body.data.currentStatus).toBe('OPEN');
 
       res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'IN_PROGRESS' });
+        .send({ expectedVersion: await currentVersion(), status: 'IN_PROGRESS' });
       expect(res.status).toBe(200);
       expect(res.body.data.currentStatus).toBe('IN_PROGRESS');
 
       res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'WAITING_FOR_REQUESTER' });
+        .send({ expectedVersion: await currentVersion(), status: 'WAITING_FOR_REQUESTER' });
       expect(res.status).toBe(200);
       expect(res.body.data.currentStatus).toBe('WAITING_FOR_REQUESTER');
 
       res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'RESOLVED', resolutionSummary: 'Fixed by replacing the faulty part.' });
+        .send({ expectedVersion: await currentVersion(), status: 'RESOLVED', resolutionSummary: 'Fixed by replacing the faulty part.' });
       expect(res.status).toBe(200);
       expect(res.body.data.currentStatus).toBe('RESOLVED');
       expect(res.body.data.resolutionSummary).toBe('Fixed by replacing the faulty part.');
@@ -219,7 +227,7 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
       res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'CLOSED' });
+        .send({ expectedVersion: await currentVersion(), status: 'CLOSED' });
       expect(res.status).toBe(200);
       expect(res.body.data.currentStatus).toBe('CLOSED');
 
@@ -227,7 +235,7 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
       res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'OPEN' });
+        .send({ expectedVersion: await currentVersion(), status: 'OPEN' });
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe('ILLEGAL_STATUS_TRANSITION');
     });
@@ -248,7 +256,7 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
       const res = await request(app)
         .patch(`/api/staff/tickets/${freshTicketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'CLOSED' });
+        .send({ expectedVersion: await currentVersion(), status: 'CLOSED' });
 
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe('ILLEGAL_STATUS_TRANSITION');
@@ -258,7 +266,7 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
       const res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
-        .send({ status: 'ARCHIVED' });
+        .send({ expectedVersion: await currentVersion(), status: 'ARCHIVED' });
 
       expect(res.status).toBe(400);
     });
@@ -267,7 +275,7 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
       const res = await request(app)
         .patch(`/api/staff/tickets/${ticketId}/status`)
         .set('Authorization', `Bearer ${requesterToken}`)
-        .send({ status: 'OPEN' });
+        .send({ expectedVersion: await currentVersion(), status: 'OPEN' });
 
       expect(res.status).toBe(403);
     });

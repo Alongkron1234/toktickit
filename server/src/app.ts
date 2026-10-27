@@ -13,6 +13,7 @@ import cookieParser from 'cookie-parser';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
+import { getAllowedTransitions, evaluateResolutionGate } from './workflow';
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
 const pool = new Pool({ connectionString });
@@ -1207,6 +1208,7 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
   const ticketParam = req.params.id;
   const { status, reason } = req.body;
   const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+  const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
 
   if (requestedStatus !== 'REOPENED') {
     res.status(403).json({
@@ -1215,6 +1217,14 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
         code: 'FORBIDDEN_STATUS_TRANSITION',
         message: 'Only IT Staff may resolve, close, or perform this status transition.',
       },
+    });
+    return;
+  }
+
+  if (expectedVersion === null) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'expectedVersion must be a non-negative integer.' },
     });
     return;
   }
@@ -1251,13 +1261,14 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
       return;
     }
 
-    // Reopen Ticket
-    const updatedTicket = await prisma.ticket.update({
+    // Reopen Ticket (version check + increment, BR-13)
+    if (!(await applyVersionedUpdate(ticket.id, expectedVersion, { currentStatus: TicketStatus.REOPENED }))) {
+      const latest = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+      staleUpdate(res, latest?.version ?? 0);
+      return;
+    }
+    const updatedTicket = await prisma.ticket.findUniqueOrThrow({
       where: { id: ticket.id },
-      data: {
-        currentStatus: TicketStatus.REOPENED,
-        updatedAt: new Date(),
-      },
       include: {
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
@@ -1382,16 +1393,55 @@ app.get(
 // STAFF TICKET OPERATIONS (ISSUE 5)
 // ==========================================
 
-const VALID_TRANSITIONS: Record<string, TicketStatus[]> = {
-  NEW: [TicketStatus.OPEN, TicketStatus.CANCELLED],
-  OPEN: [TicketStatus.IN_PROGRESS, TicketStatus.CANCELLED],
-  IN_PROGRESS: [TicketStatus.WAITING_FOR_REQUESTER, TicketStatus.RESOLVED, TicketStatus.CANCELLED],
-  WAITING_FOR_REQUESTER: [TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CANCELLED],
-  RESOLVED: [TicketStatus.CLOSED],
-  REOPENED: [TicketStatus.IN_PROGRESS, TicketStatus.OPEN, TicketStatus.CANCELLED],
-  CLOSED: [],
-  CANCELLED: [],
+const STAFF_TICKET_INCLUDE = {
+  requester: { select: { id: true, name: true, email: true } },
+  owner: { select: { id: true, name: true, email: true } },
+  category: { select: { id: true, name: true } },
+  relatedSystem: { select: { id: true, name: true } },
+  attachments: { orderBy: { createdAt: 'desc' as const } },
 };
+
+// Adds the backend-calculated workflow feedback used by the staff UI (FR-11).
+async function withWorkflowInfo<T extends { id: number; currentStatus: string }>(ticket: T, role: Role) {
+  const openActionsCount = await prisma.actionTaken.count({ where: { ticketId: ticket.id, status: 'OPEN' } });
+  return {
+    ...ticket,
+    allowedTransitions: getAllowedTransitions(ticket.currentStatus, role, false),
+    openActionsCount,
+  };
+}
+
+// Returns undefined when absent, null when invalid, otherwise the integer.
+function parseExpectedVersion(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function staleUpdate(res: Response, currentVersion: number) {
+  res.status(409).json({
+    success: false,
+    error: {
+      code: 'STALE_UPDATE',
+      message: 'This Ticket was changed by someone else. Reload to see the latest version.',
+      currentVersion,
+    },
+  });
+}
+
+// Atomic conditional update (BR-13): applies `data` only if the stored version still equals
+// `expectedVersion` (when given) and increments the version. Returns false on a version mismatch.
+async function applyVersionedUpdate(
+  ticketId: number,
+  expectedVersion: number | undefined,
+  data: Record<string, unknown>
+) {
+  const result = await prisma.ticket.updateMany({
+    where: { id: ticketId, ...(expectedVersion !== undefined ? { version: expectedVersion } : {}) },
+    data: { ...data, version: { increment: 1 } },
+  });
+  return result.count === 1;
+}
+
 
 // GET /api/staff/tickets/:id - Retrieve One Ticket for IT Staff Operations
 app.get(
@@ -1407,13 +1457,7 @@ app.get(
             { ticketNumber: req.params.id },
           ],
         },
-        include: {
-          requester: { select: { id: true, name: true, email: true } },
-          owner: { select: { id: true, name: true, email: true } },
-          category: { select: { id: true, name: true } },
-          relatedSystem: { select: { id: true, name: true } },
-          attachments: { orderBy: { createdAt: 'desc' } },
-        },
+        include: STAFF_TICKET_INCLUDE,
       });
 
       if (!ticket) {
@@ -1424,7 +1468,7 @@ app.get(
         return;
       }
 
-      res.status(200).json({ success: true, data: ticket });
+      res.status(200).json({ success: true, data: await withWorkflowInfo(ticket, req.user!.role) });
     } catch (error) {
       console.error('Error fetching staff ticket detail:', error);
       res.status(500).json({
@@ -1468,6 +1512,7 @@ app.patch(
     const ticketId = parseInt(req.params.id, 10);
     const { ownerId } = req.body;
     const ownerIdNum = parseInt(ownerId, 10);
+    const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
 
     if (isNaN(ticketId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
@@ -1475,6 +1520,10 @@ app.patch(
     }
     if (isNaN(ownerIdNum)) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'ownerId is required and must be an integer.' } });
+      return;
+    }
+    if (expectedVersion === null) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'expectedVersion must be a non-negative integer.' } });
       return;
     }
 
@@ -1495,9 +1544,13 @@ app.patch(
         return;
       }
 
-      const updatedTicket = await prisma.ticket.update({
+      if (!(await applyVersionedUpdate(ticketId, expectedVersion, { ownerId: ownerIdNum }))) {
+        const latest = await prisma.ticket.findUnique({ where: { id: ticketId } });
+        staleUpdate(res, latest?.version ?? 0);
+        return;
+      }
+      const updatedTicket = await prisma.ticket.findUnique({
         where: { id: ticketId },
-        data: { ownerId: ownerIdNum },
         include: {
           owner: { select: { id: true, name: true, email: true } },
         },
@@ -1522,10 +1575,15 @@ app.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const ticketId = parseInt(req.params.id, 10);
     const { itPriority } = req.body;
+    const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
     const normalizedPriority = typeof itPriority === 'string' ? itPriority.trim().toUpperCase() : '';
 
     if (isNaN(ticketId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
+      return;
+    }
+    if (expectedVersion === null) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'expectedVersion must be a non-negative integer.' } });
       return;
     }
     if (!Object.values(Priority).includes(normalizedPriority as Priority)) {
@@ -1543,10 +1601,12 @@ app.patch(
         return;
       }
 
-      const updatedTicket = await prisma.ticket.update({
-        where: { id: ticketId },
-        data: { itPriority: normalizedPriority as Priority },
-      });
+      if (!(await applyVersionedUpdate(ticketId, expectedVersion, { itPriority: normalizedPriority as Priority }))) {
+        const latest = await prisma.ticket.findUnique({ where: { id: ticketId } });
+        staleUpdate(res, latest?.version ?? 0);
+        return;
+      }
+      const updatedTicket = await prisma.ticket.findUnique({ where: { id: ticketId } });
 
       res.status(200).json({ success: true, data: updatedTicket });
     } catch (error) {
@@ -1568,6 +1628,8 @@ app.patch(
     const ticketId = parseInt(req.params.id, 10);
     const { status, resolutionSummary } = req.body;
     const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+    const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
+    const summary = typeof resolutionSummary === 'string' ? resolutionSummary.trim() : '';
 
     if (isNaN(ticketId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
@@ -1580,6 +1642,20 @@ app.patch(
       });
       return;
     }
+    if (typeof expectedVersion !== 'number') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'expectedVersion is required and must be a non-negative integer.' },
+      });
+      return;
+    }
+    if (summary.length > 2000) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'resolutionSummary must be at most 2000 characters.' },
+      });
+      return;
+    }
 
     try {
       const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
@@ -1588,8 +1664,8 @@ app.patch(
         return;
       }
 
-      const permitted = VALID_TRANSITIONS[ticket.currentStatus] || [];
-      if (!permitted.includes(requestedStatus as TicketStatus)) {
+      const permitted = getAllowedTransitions(ticket.currentStatus, req.user!.role, false);
+      if (!permitted.includes(requestedStatus)) {
         res.status(409).json({
           success: false,
           error: {
@@ -1600,17 +1676,34 @@ app.patch(
         return;
       }
 
-      const updatedTicket = await prisma.ticket.update({
-        where: { id: ticketId },
-        data: {
-          currentStatus: requestedStatus as TicketStatus,
-          ...(typeof resolutionSummary === 'string' && resolutionSummary.trim()
-            ? { resolutionSummary: resolutionSummary.trim() }
-            : {}),
-        },
-      });
+      if (requestedStatus === TicketStatus.RESOLVED) {
+        const openCount = await prisma.actionTaken.count({ where: { ticketId, status: 'OPEN' } });
+        const gate = evaluateResolutionGate(openCount, summary || ticket.resolutionSummary);
+        if (!gate.ok) {
+          res.status(409).json({
+            success: false,
+            error: {
+              code: 'RESOLUTION_GATE_FAILED',
+              message: 'The Ticket cannot be resolved yet.',
+              details: gate.reasons,
+            },
+          });
+          return;
+        }
+      }
 
-      res.status(200).json({ success: true, data: updatedTicket });
+      const applied = await applyVersionedUpdate(ticketId, expectedVersion, {
+        currentStatus: requestedStatus as TicketStatus,
+        ...(summary ? { resolutionSummary: summary } : {}),
+      });
+      if (!applied) {
+        const latest = await prisma.ticket.findUnique({ where: { id: ticketId } });
+        staleUpdate(res, latest?.version ?? 0);
+        return;
+      }
+
+      const updatedTicket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: STAFF_TICKET_INCLUDE });
+      res.status(200).json({ success: true, data: await withWorkflowInfo(updatedTicket!, req.user!.role) });
     } catch (error) {
       console.error('Error updating ticket status:', error);
       res.status(500).json({
