@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRequester } from '../context/RequesterContext';
+import { ActionsTakenSection } from './ActionsTakenSection';
 
 export interface AttachmentItem {
   id: number;
@@ -685,6 +686,19 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
           )}
         </div>
       </div>
+
+      {/* Actions Taken (read-only) */}
+      {currentRequester && (
+        <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+          <div className="card-body p-3 p-md-4">
+            <ActionsTakenSection
+              ticketId={ticketId}
+              getHeaders={() => ({ 'X-Dev-Requester-Id': currentRequester.id.toString() })}
+              readOnly
+            />
+          </div>
+        </div>
+      )}
 
       {/* Public Comments Section */}
       <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>

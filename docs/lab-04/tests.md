@@ -153,6 +153,24 @@ npx playwright test
 
 To be completed in the final Issue with the real output of each command above, run from the final `main` branch, the migration and rollback evidence for MIG-03, and updated `Final` values per test.
 
+### 6.1 MIG-03 evidence (Issue: Actions Taken, run on the populated development database)
+
+The development database was built with `prisma db push`, so it had no migration history. It was baselined instead of reset: the three earlier migrations (including `20260921000000_lab3_catchup_users_roles_comments`) were marked applied with `prisma migrate resolve --applied`, then `20260921010000_add_actions_taken` was applied with `prisma migrate deploy`.
+
+| Table | Before | After Lab 4 migration | After rollback + re-apply + seed |
+| :--- | ---: | ---: | ---: |
+| User | 20 | 20 | 25 (rows added by earlier test runs) |
+| Ticket | 97 | 97 | 106 (rows added by earlier test runs) |
+| PublicComment | 131 | 131 | 136 |
+| InternalNote | 47 | 47 | 49 |
+| Attachment | 35 | 35 | 36 |
+| Category / RelatedSystem | 4 / 7 | 4 / 7 | 4 / 7 |
+| ActionTaken | (absent) | 0 | 4 (seed) |
+
+- Before vs after the Lab 4 migration, every existing row count and the content fingerprint of the Ticket table (`13cbe798d7b425279c365eb2f6be60f4`) were identical: the migration only adds an enum, a table, indexes and foreign keys.
+- Rollback: `DROP TABLE "ActionTaken"; DROP TYPE "ActionStatus";` and removal of its `_prisma_migrations` row. All other table counts were unchanged afterwards; `prisma migrate deploy` then re-applied the migration and the seed restored the sample actions. The Ticket fingerprint changes after a seed run only because the seed upserts sample Tickets (`updatedAt`).
+- The first `migrate deploy` attempt failed because tool log lines were written into the generated SQL file; no schema change was made, the attempt was marked rolled back and the file was corrected.
+
 ## 7. Known Limitations or Deferred Tests
 
 To be completed at the end of the sprint. Any skipped or deferred test must be listed here with its reason; none are planned at this time.

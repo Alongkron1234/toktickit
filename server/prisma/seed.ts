@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
+import { PrismaClient, Prisma, Priority, TicketStatus, Role, ActionStatus } from '../generated/prisma/client';
 import bcrypt from 'bcryptjs';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -196,7 +196,11 @@ async function main() {
   }
 
   // 6. Seed Sample Public Comments & Internal Notes
-  if (t1234) {
+  const hasThread = t1234
+    ? (await prisma.publicComment.count({ where: { ticketId: t1234.id } })) +
+      (await prisma.internalNote.count({ where: { ticketId: t1234.id } })) > 0
+    : true;
+  if (t1234 && !hasThread) {
     console.log('Seeding Sample Comments and Notes...');
     await prisma.publicComment.create({
       data: {
@@ -223,6 +227,56 @@ async function main() {
       },
     });
     console.log('  - Public Comments and Internal Note seeded for TKT-2026-001234');
+  }
+
+  // 7. Seed Sample Actions Taken (0 / 1 / many per Ticket, different staff authors)
+  console.log('Seeding Sample Actions Taken...');
+  const t1232 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-001232' } });
+  const sampleActions = [
+    t1234 && {
+      ticketId: t1234.id,
+      performedById: seededUsers['Alex Thompson'],
+      assigneeId: null,
+      actionAt: new Date('2026-05-13T10:40:00Z'),
+      description: 'Ran battery health check on the laptop.',
+      result: 'Health capacity is at 45%.',
+      status: ActionStatus.COMPLETED,
+      completedAt: new Date('2026-05-13T10:45:00Z'),
+      attachmentNotes: 'See battery_report.pdf',
+    },
+    t1234 && {
+      ticketId: t1234.id,
+      performedById: seededUsers['Kevin Patel'],
+      assigneeId: seededUsers['Kevin Patel'],
+      actionAt: new Date('2026-05-14T08:00:00Z'),
+      description: 'Order replacement battery part #BAT-994.',
+      status: ActionStatus.OPEN,
+      followUpRequired: true,
+      followUpNote: 'Check delivery status in 3 days.',
+    },
+    t1234 && {
+      ticketId: t1234.id,
+      performedById: seededUsers['Lisa Martinez'],
+      assigneeId: null,
+      actionAt: new Date('2026-05-14T09:00:00Z'),
+      description: 'Offer loaner laptop while waiting for the part.',
+      status: ActionStatus.CANCELLED,
+      cancelledAt: new Date('2026-05-14T09:30:00Z'),
+    },
+    t1232 && {
+      ticketId: t1232.id,
+      performedById: seededUsers['Kevin Patel'],
+      assigneeId: seededUsers['Kevin Patel'],
+      actionAt: new Date('2026-05-15T13:00:00Z'),
+      description: 'Re-create the mobile mail profile on the requester device.',
+      status: ActionStatus.OPEN,
+    },
+  ].filter(Boolean) as Prisma.ActionTakenUncheckedCreateInput[];
+  for (const a of sampleActions) {
+    const exists = await prisma.actionTaken.findFirst({
+      where: { ticketId: a.ticketId, description: a.description },
+    });
+    if (!exists) await prisma.actionTaken.create({ data: a });
   }
 
   console.log('--- Seeding completed successfully ---');
