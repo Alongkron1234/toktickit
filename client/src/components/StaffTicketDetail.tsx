@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ActionsTakenSection } from './ActionsTakenSection';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate } from '../utils/badges';
 
 export interface StaffAttachmentItem {
@@ -90,9 +91,10 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [resolutionSummaryDraft, setResolutionSummaryDraft] = useState('');
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'comments' | 'notes' | 'attachments'>('comments');
+  const [activeTab, setActiveTab] = useState<'comments' | 'notes' | 'attachments' | 'actions'>('comments');
   const [comments, setComments] = useState<CommentOrNote[]>([]);
   const [notes, setNotes] = useState<CommentOrNote[]>([]);
+  const [actionsCount, setActionsCount] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [notesLoading, setNotesLoading] = useState(false);
   const [newCommentText, setNewCommentText] = useState('');
@@ -553,6 +555,13 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
               </li>
             )}
             <li className="nav-item">
+              <button className={`nav-link ${activeTab === 'actions' ? 'active fw-semibold' : ''}`}
+                style={activeTab === 'actions' ? { color: '#0B7A46', borderColor: '#0B7A46 #0B7A46 #fff' } : { color: '#4A6358', border: 'none' }}
+                onClick={() => setActiveTab('actions')}>
+                🛠 Actions Taken ({actionsCount})
+              </button>
+            </li>
+            <li className="nav-item">
               <button className={`nav-link ${activeTab === 'attachments' ? 'active fw-semibold' : ''}`}
                 style={activeTab === 'attachments' ? { color: '#15803D', borderColor: '#15803D #15803D #fff' } : { color: '#4A6358', border: 'none' }}
                 onClick={() => setActiveTab('attachments')}>
@@ -641,6 +650,17 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 </button>
               </form>
             </div>
+          )}
+
+          {activeTab === 'actions' && (
+            <ActionsTakenSection
+              ticketId={ticket.id}
+              getHeaders={authHeaders}
+              readOnly={false}
+              performerName={user?.name}
+              members={members}
+              onCountChange={setActionsCount}
+            />
           )}
 
           {activeTab === 'attachments' && (
