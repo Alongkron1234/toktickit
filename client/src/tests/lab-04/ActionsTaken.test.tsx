@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ActionsTakenSection } from '../../components/ActionsTakenSection';
 
 const members = [
@@ -41,7 +41,12 @@ const renderStaff = () =>
   );
 
 describe('Lab 4 Actions Taken UI', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
 
   it('UI-01: shows the empty state', async () => {
     mockFetch([]);

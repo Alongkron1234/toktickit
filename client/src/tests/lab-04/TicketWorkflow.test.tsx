@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthContext } from '../../context/AuthContext';
 import { StaffTicketDetail } from '../../components/StaffTicketDetail';
 
@@ -63,7 +63,12 @@ function setup(opts: { ticket?: Record<string, unknown>; onStatus?: (init: Reque
 }
 
 describe('Lab 4 Ticket workflow UI', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
 
   it('UI-05: the status dropdown lists only the transitions returned by the API', async () => {
     setup({});
