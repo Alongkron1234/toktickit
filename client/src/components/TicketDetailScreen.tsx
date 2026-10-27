@@ -26,6 +26,7 @@ export interface TicketDetailData {
   requestedPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   itPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   currentStatus: 'NEW' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REOPENED';
+  version?: number;
   appearsResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -340,13 +341,18 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         },
         body: JSON.stringify({
           status: 'REOPENED',
+          expectedVersion: ticket?.version,
         }),
       });
 
       const result = await res.json();
 
       if (!res.ok || !result.success) {
-        throw new Error(result.error?.message || 'Failed to reopen ticket.');
+        throw new Error(
+          result.error?.code === 'STALE_UPDATE'
+            ? 'This Ticket was changed by someone else. Reload to see the latest version.'
+            : result.error?.message || 'Failed to reopen ticket.'
+        );
       }
 
       await fetchTicketDetail();

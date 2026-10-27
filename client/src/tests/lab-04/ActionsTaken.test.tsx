@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ActionsTakenSection } from '../../components/ActionsTakenSection';
 
 const members = [
@@ -41,7 +41,12 @@ const renderStaff = () =>
   );
 
 describe('Lab 4 Actions Taken UI', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
 
   it('UI-01: shows the empty state', async () => {
     mockFetch([]);
@@ -98,7 +103,7 @@ describe('Lab 4 Actions Taken UI', () => {
     expect(fetchFn.mock.calls.filter(([, i]) => !(i as RequestInit | undefined)?.method).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('UI-05: completing requires a result', async () => {
+  it('UI-04 (complete): completing requires a result', async () => {
     let completed = false;
     mockFetch([openAction], (url, init) => {
       if (init?.method === 'POST' && url.endsWith('/complete')) {
@@ -117,7 +122,7 @@ describe('Lab 4 Actions Taken UI', () => {
     await waitFor(() => expect(completed).toBe(true));
   });
 
-  it('UI-06: cancel asks for confirmation and Keep Open dismisses it', async () => {
+  it('UI-04 (cancel): cancel asks for confirmation and Keep Open dismisses it', async () => {
     let cancelled = false;
     mockFetch([openAction], (url, init) => {
       if (init?.method === 'POST' && url.endsWith('/cancel')) {
@@ -136,7 +141,7 @@ describe('Lab 4 Actions Taken UI', () => {
     await waitFor(() => expect(cancelled).toBe(true));
   });
 
-  it('UI-07: load failure shows a safe message with Retry', async () => {
+  it('UI-01 (failure): load failure shows a safe message with Retry', async () => {
     global.fetch = vi.fn(() => Promise.reject(new Error('boom'))) as unknown as typeof fetch;
     renderStaff();
     expect(await screen.findByText("We couldn't load the actions.")).toBeInTheDocument();
