@@ -81,86 +81,8 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-// Middleware: Require X-Dev-Requester-Id Header
-export const requireRequesterHeader = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  const requesterIdHeader = req.header('X-Dev-Requester-Id');
-
-  if (!requesterIdHeader) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED_CONTEXT',
-        message: 'X-Dev-Requester-Id header is required to access this resource.',
-      },
-    });
-    return;
-  }
-
-  const requesterId = parseInt(requesterIdHeader, 10);
-  if (isNaN(requesterId)) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'INVALID_CONTEXT',
-        message: 'Invalid X-Dev-Requester-Id format.',
-      },
-    });
-    return;
-  }
-
-  try {
-    let user = await prisma.user.findUnique({ where: { id: requesterId } });
-    if (!user && requesterId > 0 && requesterId < 1000) {
-      user = {
-        id: requesterId,
-        name: `Requester ${requesterId}`,
-        email: `requester${requesterId}@example.com`,
-        role: Role.REQUESTER,
-        isActive: true,
-        requiresPasswordChange: false,
-        passwordHash: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-    }
-
-    if (!user || !user.isActive) {
-      res.status(403).json({
-        success: false,
-        error: {
-          code: 'INACTIVE_OR_NOT_FOUND',
-          message: 'Selected Requester is invalid or inactive.',
-        },
-      });
-      return;
-    }
-
-    const requester = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
-
-    req.currentRequester = requester;
-    next();
-  } catch (error) {
-    console.error('Error validating requester header:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'SERVER_ERROR',
-        message: 'Internal server error validating requester context.',
-      },
-    });
-  }
-};
+// Requester-only routes: identity and role come from the authenticated token (never from a client header).
+const requesterOnly = [requireAuth, requireRole(Role.REQUESTER)];
 
 // Helper: Auto Ticket Number Generator (BR-01: TKT-YYYY-XXXXXX)
 async function generateUniqueTicketNumber(): Promise<string> {
@@ -403,36 +325,6 @@ app.post('/api/auth/change-password', requireAuth, async (req: AuthenticatedRequ
   }
 });
 
-// GET /api/requesters - Active Requesters list (Updated for Lab 3)
-app.get('/api/requesters', async (_req, res) => {
-  try {
-    const requesters = await prisma.user.findMany({
-      where: { role: Role.REQUESTER, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isActive: true,
-      },
-      orderBy: { name: 'asc' },
-    });
-
-    res.status(200).json({
-      success: true,
-      data: requesters,
-    });
-  } catch (error) {
-    console.error('Error fetching requesters:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'FETCH_ERROR',
-        message: 'Failed to fetch active requesters.',
-      },
-    });
-  }
-});
-
 // GET /api/categories - Active Categories list
 app.get('/api/categories', async (_req, res) => {
   try {
@@ -484,7 +376,7 @@ app.get('/api/related-systems', async (_req, res) => {
 });
 
 // POST /api/tickets - Create IT Support Ticket (Issue 4)
-app.post('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/tickets', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { categoryId, relatedSystemId, summary, requestedPriority, description } = req.body;
   const validationDetails: Array<{ field: string; message: string }> = [];
 
@@ -603,7 +495,7 @@ app.post('/api/tickets', requireRequesterHeader, async (req: AuthenticatedReques
 });
 
 // GET /api/tickets - Query Owned Tickets with Search, Filter, Sort & Pagination (Issue 6)
-app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/tickets', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { search, categoryId, requestedPriority, status, sortBy, sortOrder, page, limit } = req.query;
 
   try {
@@ -718,7 +610,7 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
 });
 
 // GET /api/tickets/:id - Retrieve Detailed Ticket Information (Issue 8 - BR-09, BR-10)
-app.get('/api/tickets/:id', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/tickets/:id', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const ticketIdParam = req.params.id;
   const ticketId = parseInt(ticketIdParam, 10);
 
@@ -756,14 +648,11 @@ app.get('/api/tickets/:id', requireRequesterHeader, async (req: AuthenticatedReq
       return;
     }
 
-    // Ownership Boundary Check (BR-09, BR-10)
+    // Ownership Boundary Check (BR-09, BR-10). BR-21: a non-owner gets the same 404 as a missing Ticket.
     if (ticket.requesterId !== req.currentRequester!.id) {
-      res.status(403).json({
+      res.status(404).json({
         success: false,
-        error: {
-          code: 'FORBIDDEN_TICKET_ACCESS',
-          message: 'You do not have permission to view this ticket.',
-        },
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
       });
       return;
     }
@@ -785,7 +674,7 @@ app.get('/api/tickets/:id', requireRequesterHeader, async (req: AuthenticatedReq
 });
 
 // POST /api/tickets/:id/attachments - Upload Attachment File (Issue 8 - BR-19, BR-20, BR-23)
-app.post('/api/tickets/:id/attachments', requireRequesterHeader, (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/tickets/:id/attachments', ...requesterOnly, (req: AuthenticatedRequest, res: Response) => {
   upload.single('file')(req, res, async (err: any) => {
     if (err) {
       if (err.message === 'INVALID_FILE_TYPE') {
@@ -852,9 +741,9 @@ app.post('/api/tickets/:id/attachments', requireRequesterHeader, (req: Authentic
       // Ownership Check (BR-23)
       if (ticket.requesterId !== req.currentRequester!.id) {
         if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-        return res.status(403).json({
+        return res.status(404).json({
           success: false,
-          error: { code: 'FORBIDDEN_TICKET_ACCESS', message: 'You do not own this ticket.' },
+          error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
         });
       }
 
@@ -973,7 +862,7 @@ app.get('/api/attachments/:id/download', requireAuth, async (req: AuthenticatedR
 });
 
 // PATCH /api/attachments/:id/remove - Soft-Remove Attachment (Issue 8 - BR-21)
-app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.patch('/api/attachments/:id/remove', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const attachmentId = parseInt(req.params.id, 10);
   if (isNaN(attachmentId)) {
     res.status(400).json({
@@ -1206,7 +1095,7 @@ app.post('/api/tickets/:id/comments', requireAuth, async (req: AuthenticatedRequ
 });
 
 // PATCH /api/tickets/:id/status - Requester Reopen Ticket Transition (Issue 3 - BR-05, BR-15)
-app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.patch('/api/tickets/:id/status', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const ticketParam = req.params.id;
   const { status, reason } = req.body;
   const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
@@ -1244,9 +1133,9 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
 
     // Requester Ownership Check
     if (ticket.requesterId !== req.currentRequester!.id) {
-      res.status(403).json({
+      res.status(404).json({
         success: false,
-        error: { code: 'FORBIDDEN_TICKET_ACCESS', message: 'You do not own this ticket.' },
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
       });
       return;
     }

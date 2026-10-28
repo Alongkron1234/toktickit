@@ -28,7 +28,7 @@ describe('Issue 5: Internal Notes & Staff Public Comments Access API Tests', () 
 
     const createRes = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', requesterId.toString())
+      .set('Authorization', `Bearer ${requesterToken}`)
       .send({
         summary: 'Issue 5 comments/notes test fixture',
         description: 'Created for Public Comments (staff access) and Internal Notes API tests',

@@ -20,7 +20,7 @@ describe('Lab 4 Ticket workflow API', () => {
   async function newTicket() {
     const res = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', owner.id.toString())
+      .set('Authorization', `Bearer ${owner.token}`)
       .send({
         summary: 'Workflow fixture',
         description: 'Fixture ticket for workflow tests',
@@ -184,7 +184,7 @@ describe('Lab 4 Ticket workflow API', () => {
     for (const status of ['RESOLVED', 'CLOSED', 'IN_PROGRESS']) {
       const res = await request(app)
         .patch(`/api/tickets/${id}/status`)
-        .set('X-Dev-Requester-Id', owner.id.toString())
+        .set('Authorization', `Bearer ${owner.token}`)
         .send({ status });
       expect(res.status, status).toBe(403);
       expect(res.body.error.code).toBe('FORBIDDEN_STATUS_TRANSITION');
@@ -199,20 +199,21 @@ describe('Lab 4 Ticket workflow API', () => {
 
     const notOwner = await request(app)
       .patch(`/api/tickets/${id}/status`)
-      .set('X-Dev-Requester-Id', other.id.toString())
+      .set('Authorization', `Bearer ${other.token}`)
       .send({ status: 'REOPENED' });
-    expect(notOwner.status).toBe(403);
+    // BR-21: a non-owner gets the same 404 as for a Ticket that does not exist.
+    expect(notOwner.status).toBe(404);
 
     const stale = await request(app)
       .patch(`/api/tickets/${id}/status`)
-      .set('X-Dev-Requester-Id', owner.id.toString())
+      .set('Authorization', `Bearer ${owner.token}`)
       .send({ status: 'REOPENED', expectedVersion: before - 1 });
     expect(stale.status).toBe(409);
     expect(stale.body.error.code).toBe('STALE_UPDATE');
 
     const ok = await request(app)
       .patch(`/api/tickets/${id}/status`)
-      .set('X-Dev-Requester-Id', owner.id.toString())
+      .set('Authorization', `Bearer ${owner.token}`)
       .send({ status: 'REOPENED', expectedVersion: before });
     expect(ok.status).toBe(200);
     expect(ok.body.data.currentStatus).toBe('REOPENED');
@@ -265,7 +266,7 @@ describe('Lab 4 Ticket workflow API', () => {
     const before = (await getStaff(id)).body.data;
     const res = await request(app)
       .post(`/api/tickets/${id}/comments`)
-      .set('X-Dev-Requester-Id', owner.id.toString())
+      .set('Authorization', `Bearer ${owner.token}`)
       .send({ content: 'It seems fixed now', appearsResolved: true });
     expect(res.status).toBe(201);
     const after = (await getStaff(id)).body.data;

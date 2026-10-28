@@ -1,39 +1,27 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app';
+import { loginAs, bearer, TestUser } from '../helpers/auth';
 
-describe('Development Requester API & Context Middleware (Lab 2 - Issue 3)', () => {
-  it('GET /api/requesters should return HTTP 200 with only active requesters', async () => {
-    const response = await request(app).get('/api/requesters');
-    expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('success', true);
-    expect(Array.isArray(response.body.data)).toBe(true);
+let jennifer: TestUser;
+let michael: TestUser;
 
-    const requesters = response.body.data;
-    expect(requesters.length).toBeGreaterThan(0);
+beforeAll(async () => {
+  jennifer = await loginAs('jennifer.anderson@example.com');
+  michael = await loginAs('michael.brown@example.com');
+});
 
-    // All returned requesters must have isActive = true
-    requesters.forEach((req: { id: number; name: string; email: string; isActive: boolean }) => {
-      expect(req.isActive).toBe(true);
-      expect(req.email).not.toBe('robert.taylor@example.com'); // Robert Taylor is inactive in seed
-    });
-  });
-
-  it('Protected endpoints should return HTTP 403 when X-Dev-Requester-Id header is missing', async () => {
+describe('Requester authentication on Lab 2 endpoints (Lab 2 - Issue 3, token-based since Lab 4)', () => {
+  it('Protected endpoints should return HTTP 401 when the token is missing', async () => {
     const response = await request(app).get('/api/tickets');
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
     expect(response.body).toHaveProperty('success', false);
-    expect(response.body.error.message).toMatch(/X-Dev-Requester-Id header is required/i);
   });
 
-  it('Protected endpoints should return HTTP 403 when X-Dev-Requester-Id belongs to an invalid or inactive requester', async () => {
-    const response = await request(app)
-      .get('/api/tickets')
-      .set('X-Dev-Requester-Id', '999999'); // Non-existent requester ID
-
-    expect(response.status).toBe(403);
+  it('Protected endpoints should return HTTP 401 when the token is invalid', async () => {
+    const response = await request(app).get('/api/tickets').set('Authorization', 'Bearer not-a-real-token');
+    expect(response.status).toBe(401);
     expect(response.body).toHaveProperty('success', false);
-    expect(response.body.error.message).toMatch(/invalid or inactive/i);
   });
 });
 
@@ -57,7 +45,7 @@ describe('Ticket Creation API & Backend Validation (Lab 2 - Issue 4)', () => {
 
     const response = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', '1') // Jennifer Anderson
+      .set(bearer(jennifer.token)) // Jennifer Anderson
       .send(newTicketData);
 
     expect(response.status).toBe(201);
@@ -85,7 +73,7 @@ describe('Ticket Creation API & Backend Validation (Lab 2 - Issue 4)', () => {
 
     const response = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', '1')
+      .set(bearer(jennifer.token))
       .send(invalidTicketData);
 
     expect(response.status).toBe(400);

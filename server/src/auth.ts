@@ -87,37 +87,6 @@ export const requireAuth = async (
     token = req.cookies.session_token;
   }
 
-  // 3. Backward Compatibility Fallback: X-Dev-Requester-Id Header
-  const requesterIdHeader = req.header('X-Dev-Requester-Id');
-  if (!token && requesterIdHeader) {
-    const requesterId = parseInt(requesterIdHeader, 10);
-    if (!isNaN(requesterId)) {
-      try {
-        const dbUser = await prisma.user.findUnique({ where: { id: requesterId } });
-        if (dbUser && dbUser.isActive) {
-          req.user = {
-            id: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email,
-            role: dbUser.role,
-            isActive: dbUser.isActive,
-            requiresPasswordChange: dbUser.requiresPasswordChange,
-          };
-          req.currentRequester = {
-            id: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email,
-            isActive: dbUser.isActive,
-          };
-          next();
-          return;
-        }
-      } catch (err) {
-        // Fallback check failed
-      }
-    }
-  }
-
   if (!token) {
     res.status(401).json({
       success: false,
