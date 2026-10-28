@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app, prisma } from '../../src/app';
 
@@ -17,6 +17,9 @@ describe('Lab 4 Dashboard API', () => {
   let alex: { token: string; id: number };
   let admin: { token: string; id: number };
   let newRequesterToken: string;
+  let emptyRequesterEmail: string;
+  let emptyStaffEmail: string;
+  let emptyStaffToken: string;
 
   beforeAll(async () => {
     jennifer = await login('jennifer.anderson@example.com');
@@ -25,6 +28,7 @@ describe('Lab 4 Dashboard API', () => {
     admin = await login('john.smith@toktickit.com');
     // A requester that never created a Ticket (zero-state): create one fresh account with no tickets.
     const email = `dash.empty.${Date.now()}@example.com`;
+    emptyRequesterEmail = email;
     const created = await request(app)
       .post('/api/admin/users')
       .set(auth(admin.token))
@@ -40,6 +44,28 @@ describe('Lab 4 Dashboard API', () => {
     const again = await request(app).post('/api/auth/login').send({ email, password: newPassword });
     newRequesterToken = again.body.data.token;
     expect(newRequesterToken).toBeTruthy();
+
+    // A staff account that owns no Tickets and has recorded no actions (API-20).
+    emptyStaffEmail = `dash.staff.${Date.now()}@toktickit.com`;
+    const staffCreated = await request(app)
+      .post('/api/admin/users')
+      .set(auth(admin.token))
+      .send({ name: 'Dash Staff', email: emptyStaffEmail, role: 'IT_STAFF', isActive: true, initialPassword: PASSWORD });
+    expect(staffCreated.status).toBe(201);
+    const sl = await request(app).post('/api/auth/login').send({ email: emptyStaffEmail, password: PASSWORD });
+    const staffNew = 'DashStaff#2026pw';
+    await request(app)
+      .post('/api/auth/change-password')
+      .set(auth(sl.body.data.token))
+      .send({ currentPassword: PASSWORD, newPassword: staffNew, confirmPassword: staffNew });
+    const staffAgain = await request(app).post('/api/auth/login').send({ email: emptyStaffEmail, password: staffNew });
+    emptyStaffToken = staffAgain.body.data.token;
+    expect(emptyStaffToken).toBeTruthy();
+  });
+
+  afterAll(async () => {
+    // The zero-state account is a test fixture; remove it so repeated runs do not pile up users.
+    await prisma.user.deleteMany({ where: { email: { in: [emptyRequesterEmail, emptyStaffEmail] } } });
   });
 
   it('DASH-01: requester metrics equal direct DB counts for that requester only', async () => {
@@ -77,6 +103,36 @@ describe('Lab 4 Dashboard API', () => {
     expect(res.body.data.metrics).toEqual({ open: 0, inProgress: 0, waitingForRequester: 0, resolved: 0, closed: 0 });
     expect(res.body.data.recentlyUpdated).toEqual([]);
     expect(res.body.data.recentlyResolved).toEqual([]);
+  });
+
+  it('DASH-03b: the seeded Requester without Tickets (Emma) sees the zero state', async () => {
+    const emma = await login('emma.wilson@example.com');
+    const res = await request(app).get('/api/dashboard/requester').set(auth(emma.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.metrics).toEqual({ open: 0, inProgress: 0, waitingForRequester: 0, resolved: 0, closed: 0 });
+    expect(res.body.data.recentlyUpdated).toEqual([]);
+  });
+
+  it('DASH-03c: a staff user with no owned Tickets or actions gets zeros and empty lists', async () => {
+    const res = await request(app).get('/api/dashboard/staff').set(auth(emptyStaffToken));
+    expect(res.status).toBe(200);
+    const m = res.body.data.metrics;
+    expect(m.myAssigned).toBe(0);
+    expect(m.myOpenActions).toBe(0);
+    expect(res.body.data.myRecentTickets).toEqual([]);
+    expect(res.body.data.myRecentActions).toEqual([]);
+    expect(res.body.data.userCounts).toBeNull();
+    // Team-wide numbers are still returned for the same user.
+    expect(m.unassigned).toBe(
+      await prisma.ticket.count({ where: { ownerId: null, currentStatus: { in: [...ACTIVE] } } })
+    );
+  });
+
+  it('SEED-01: the seed covers all eight statuses', async () => {
+    const grouped = await prisma.ticket.groupBy({ by: ['currentStatus'], _count: { _all: true } });
+    expect(grouped.map((g) => g.currentStatus).sort()).toEqual(
+      ['CANCELLED', 'CLOSED', 'IN_PROGRESS', 'NEW', 'OPEN', 'REOPENED', 'RESOLVED', 'WAITING_FOR_REQUESTER']
+    );
   });
 
   it('DASH-04: staff metrics equal direct DB counts', async () => {
