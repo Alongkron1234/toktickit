@@ -75,18 +75,22 @@ cp server/.env.example server/.env
 ```
 Ensure `DATABASE_URL` is set to your PostgreSQL connection string in `.env`.
 
+> The Prisma client in `server/generated/` is **not committed**. `npm install` in `server` runs `prisma generate` automatically (`postinstall`); run `npx prisma generate` manually after changing `schema.prisma`.
+
 ### 4. Database Setup & Migration & Seeding
 Run Prisma migrations and seed initial Requesters, Categories, and Related Systems:
 ```bash
 cd server
 
-# Apply database migrations
-npx prisma migrate dev
+# Apply the committed migrations (does not reset data)
+npx prisma migrate deploy
 
 # Seed database (Requesters, Categories, Related Systems, Sample Tickets)
 npx prisma db seed
 cd ..
 ```
+
+Migrations live in `server/prisma/migrations/` and are applied with `migrate deploy`. Avoid `prisma migrate dev` on a database that already holds data: it can offer to reset it. To create a new migration, generate the SQL with `prisma migrate diff`, review it, then apply it with `migrate deploy`. The seed is idempotent (upsert), so it can be re-run safely.
 
 ### 5. Running the Application
 Start the backend and frontend development servers:
@@ -113,6 +117,7 @@ The seed script creates accounts for each role. All seeded accounts share the sa
 | Requester | `jennifer.anderson@example.com` | `InitialPassword123!` |
 | IT Staff | `alex.thompson@toktickit.com` | `InitialPassword123!` |
 | Administrator | `john.smith@toktickit.com` | `InitialPassword123!` |
+| Requester (no tickets, empty dashboard) | `emma.wilson@example.com` | `InitialPassword123!` |
 
 ---
 
@@ -121,7 +126,7 @@ The seed script creates accounts for each role. All seeded accounts share the sa
 Run all automated test suites across Server, Client, and E2E levels:
 
 ```bash
-# 1. Run server API integration tests (Supertest)
+# 1. Run server API integration tests (Supertest) — needs the database running and seeded
 cd server
 npm test
 
@@ -133,9 +138,19 @@ npm test
 npx playwright test
 ```
 
+Before running E2E tests, start the database (`npm run db:dev` in `server`), the backend (`npm run dev` in `server`) and the frontend (`npm run dev` in `client`), and make sure the database is seeded. Test case IDs and their status per lab are listed in `docs/lab-0X/tests.md`.
+
 ---
 
 ## 📋 Features
+
+### Lab 4 / Sprint 4 Scope
+- **Actions Taken**: IT Staff and Administrators record, edit, complete or cancel actions on a ticket; the performer always comes from the signed-in user. Requesters can read actions on their own tickets.
+- **Ticket Workflow**: Status changes use optimistic versioning (`expectedVersion`) and enforce permitted transitions and a required resolution summary.
+- **Dashboards**: Requester and Staff/Admin dashboards (default landing page) with metrics computed by the backend; metric cards drill down into the filtered ticket list.
+- **Auth cleanup & hardening**: Identity comes only from the JWT (the `X-Dev-Requester-Id` header and the Requester selector are removed); a Requester who requests another user's ticket gets the same `404` as for a missing ticket; accessible modals (dialog role, labels, Esc to close); double-submit protection covered by tests.
+
+**Lab 4 demo path**: sign in as Requester (Jennifer) → Dashboard → create a ticket → sign in as IT Staff (Alex) → Dashboard → open the ticket from the queue → claim it, add an Actions Taken entry and walk the status to Resolved → sign in as Requester → comment / reopen; Administrator (John) can additionally see user counts on the dashboard.
 
 ### Lab 3 / Sprint 3 Scope
 - **Authentication & Role-Based Authorization**: Email/password login, bcrypt-hashed passwords, JWT sessions, mandatory password change on first login, and server-side authorization for three roles — Requester, IT Staff, Administrator.

@@ -37,7 +37,7 @@ describe('Lab 4 Actions Taken API', () => {
 
     const t = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', owner.id.toString())
+      .set('Authorization', `Bearer ${owner.token}`)
       .send({
         summary: 'Lab 4 actions fixture',
         description: 'Fixture ticket for Actions Taken API tests',
@@ -114,7 +114,7 @@ describe('Lab 4 Actions Taken API', () => {
 
     const t = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', owner.id.toString())
+      .set('Authorization', `Bearer ${owner.token}`)
       .send({
         summary: 'No actions',
         description: 'Ticket without actions',

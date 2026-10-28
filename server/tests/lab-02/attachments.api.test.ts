@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app';
+import { loginAs, bearer, TestUser } from '../helpers/auth';
+
+let jennifer: TestUser;
+let michael: TestUser;
+
+beforeAll(async () => {
+  jennifer = await loginAs('jennifer.anderson@example.com');
+  michael = await loginAs('michael.brown@example.com');
+});
 
 describe('Attachment Lifecycle & Soft Removal API (Lab 2 - Issue 8)', () => {
   let createdAttachmentId: number;
@@ -11,7 +20,7 @@ describe('Attachment Lifecycle & Soft Removal API (Lab 2 - Issue 8)', () => {
 
     const res = await request(app)
       .post('/api/tickets/1/attachments')
-      .set('X-Dev-Requester-Id', '1')
+      .set(bearer(jennifer.token))
       .attach('file', pdfBuffer, 'system_log.pdf');
 
     expect(res.status).toBe(201);
@@ -29,7 +38,7 @@ describe('Attachment Lifecycle & Soft Removal API (Lab 2 - Issue 8)', () => {
 
     const res = await request(app)
       .post('/api/tickets/1/attachments')
-      .set('X-Dev-Requester-Id', '1')
+      .set(bearer(jennifer.token))
       .attach('file', exeBuffer, 'malware.exe');
 
     expect(res.status).toBe(422);
@@ -42,7 +51,7 @@ describe('Attachment Lifecycle & Soft Removal API (Lab 2 - Issue 8)', () => {
 
     const res = await request(app)
       .patch(`/api/attachments/${createdAttachmentId}/remove`)
-      .set('X-Dev-Requester-Id', '1')
+      .set(bearer(jennifer.token))
       .send({ removalReason: 'Uploaded outdated system log file by mistake' });
 
     expect(res.status).toBe(200);
@@ -57,7 +66,7 @@ describe('Attachment Lifecycle & Soft Removal API (Lab 2 - Issue 8)', () => {
 
     const res = await request(app)
       .get(`/api/attachments/${createdAttachmentId}/download`)
-      .set('X-Dev-Requester-Id', '1');
+      .set(bearer(jennifer.token));
 
     expect(res.status).toBe(403);
     expect(res.body).toHaveProperty('success', false);

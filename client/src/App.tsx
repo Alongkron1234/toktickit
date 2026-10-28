@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { RequesterProvider, useRequester } from './context/RequesterContext';
 import { LoginScreen } from './components/LoginScreen';
 import { ChangePasswordScreen } from './components/ChangePasswordScreen';
 import { Header } from './components/Header';
@@ -33,7 +32,6 @@ const DEFAULT_NAV_BY_ROLE: Record<string, NavKey> = {
 
 const MainAppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
-  const { currentRequester } = useRequester();
   const [activeNav, setActiveNav] = useState<NavKey>('dashboard');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   // Dashboard drill-down: initial filters for the list screens. `listKey` remounts the
@@ -42,15 +40,8 @@ const MainAppContent: React.FC = () => {
   const [myTicketsStatus, setMyTicketsStatus] = useState<string | undefined>(undefined);
   const [listKey, setListKey] = useState(0);
 
-  // Active user identity either from AuthContext or RequesterContext (Lab 2 compatibility)
-  const activeUser = user || (currentRequester ? {
-    id: currentRequester.id,
-    name: currentRequester.name,
-    email: currentRequester.email,
-    role: 'REQUESTER' as const,
-    isActive: true,
-    requiresPasswordChange: false,
-  } : null);
+  // The signed-in user (from the token session) is the only identity source.
+  const activeUser = user;
 
   // `activeNav`/`selectedTicketId` live in this component and survive logout (it never
   // unmounts, it just swaps in <LoginScreen/>). Without this, logging out of one role's
@@ -81,9 +72,8 @@ const MainAppContent: React.FC = () => {
     );
   }
 
-  // 1. Unauthenticated Guard -> Render Login Screen or Requester Selection Screen for Lab 2 fallback
+  // 1. Unauthenticated Guard -> Render Login Screen
   if (!activeUser) {
-    // In legacy tests (Lab 2), RequesterSelectionScreen is rendered when no user is authenticated
     return <LoginScreen />;
   }
 
@@ -197,9 +187,7 @@ const MainAppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <RequesterProvider>
-        <MainAppContent />
-      </RequesterProvider>
+      <MainAppContent />
     </AuthProvider>
   );
 };

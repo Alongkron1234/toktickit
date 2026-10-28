@@ -8,7 +8,8 @@
     "test": "vitest run --fileParallelism=false",
     "db:dev": "prisma dev --port 51218",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",

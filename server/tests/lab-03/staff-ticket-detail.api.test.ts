@@ -35,7 +35,7 @@ describe('Issue 5: IT Staff Ticket Operations API Tests', () => {
 
     const createRes = await request(app)
       .post('/api/tickets')
-      .set('X-Dev-Requester-Id', requesterId.toString())
+      .set('Authorization', `Bearer ${requesterToken}`)
       .send({
         summary: 'Issue 5 staff ticket operations test fixture',
         description: 'Created for staff ownership/priority/status API tests',
@@ -243,7 +243,7 @@ describe('PATCH /api/staff/tickets/:id/status - permitted workflow transitions',
     it('rejects an illegal direct jump (NEW -> CLOSED) with 409', async () => {
       const createRes = await request(app)
         .post('/api/tickets')
-        .set('X-Dev-Requester-Id', requesterId.toString())
+        .set('Authorization', `Bearer ${requesterToken}`)
         .send({
           summary: 'Illegal transition test fixture',
           description: 'Should not be closeable directly from NEW',

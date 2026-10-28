@@ -1,22 +1,22 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app';
+import { loginAs, bearer, TestUser } from '../helpers/auth';
 
 describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
-  let requesterId: number;
+  let requester: TestUser;
+  let other: TestUser;
   let testTicketNumber: string;
 
   beforeAll(async () => {
-    // 1. Fetch active requesters
-    const reqRes = await request(app).get('/api/requesters');
-    expect(reqRes.status).toBe(200);
-    const requesters = reqRes.body.data || reqRes.body;
-    requesterId = requesters[0].id;
+    // 1. Log in the seeded requesters (identity comes from the token)
+    requester = await loginAs('jennifer.anderson@example.com');
+    other = await loginAs('michael.brown@example.com');
 
     // 2. Fetch requester's tickets
     const ticketsRes = await request(app)
       .get('/api/tickets')
-      .set('X-Dev-Requester-Id', requesterId.toString());
+      .set(bearer(requester.token));
     expect(ticketsRes.status).toBe(200);
     const tickets = ticketsRes.body.data || [];
     if (tickets.length > 0) {
@@ -25,7 +25,7 @@ describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
       // Create a ticket if none exists
       const createRes = await request(app)
         .post('/api/tickets')
-        .set('X-Dev-Requester-Id', requesterId.toString())
+        .set(bearer(requester.token))
         .send({
           summary: 'Test Ticket for Comments API',
           description: 'Testing comments and resolution signal',
@@ -41,7 +41,7 @@ describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
   it('API-COM-01: Should fetch comments for an owned ticket', async () => {
     const res = await request(app)
       .get(`/api/tickets/${testTicketNumber}/comments`)
-      .set('X-Dev-Requester-Id', requesterId.toString());
+      .set(bearer(requester.token));
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -51,7 +51,7 @@ describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
   it('API-COM-02: Should post a public comment to an owned ticket', async () => {
     const res = await request(app)
       .post(`/api/tickets/${testTicketNumber}/comments`)
-      .set('X-Dev-Requester-Id', requesterId.toString())
+      .set(bearer(requester.token))
       .send({
         body: 'Hello, this is a test public comment.',
       });
@@ -64,7 +64,7 @@ describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
   it('API-COM-03: Should reject empty or whitespace-only comment bodies with 400', async () => {
     const res = await request(app)
       .post(`/api/tickets/${testTicketNumber}/comments`)
-      .set('X-Dev-Requester-Id', requesterId.toString())
+      .set(bearer(requester.token))
       .send({
         body: '   ',
       });
@@ -76,7 +76,7 @@ describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
   it('API-COM-04: Should post comment with problem-appears-resolved signal', async () => {
     const res = await request(app)
       .post(`/api/tickets/${testTicketNumber}/comments`)
-      .set('X-Dev-Requester-Id', requesterId.toString())
+      .set(bearer(requester.token))
       .send({
         body: 'Everything looks good now - problem appears resolved.',
         appearsResolved: true,
@@ -88,10 +88,9 @@ describe('Issue 3: Public Comments & Resolution Signal API Tests', () => {
   });
 
   it('API-COM-05: Should return masked 404 if accessing comments of another user ticket', async () => {
-    const otherRequesterId = requesterId === 1 ? 2 : 1;
     const res = await request(app)
       .get(`/api/tickets/${testTicketNumber}/comments`)
-      .set('X-Dev-Requester-Id', otherRequesterId.toString());
+      .set(bearer(other.token));
 
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);

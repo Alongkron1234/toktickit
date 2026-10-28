@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRequester } from '../context/RequesterContext';
+import { useAuth } from '../context/AuthContext';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate, getPaginationPages } from '../utils/badges';
 
 export interface TicketItem {
@@ -51,7 +51,8 @@ const thStyle: React.CSSProperties = {
 };
 
 export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket, onNavigateToCreate, initialStatus }) => {
-  const { currentRequester } = useRequester();
+  // Identity comes from the signed-in user's token (Requester screens no longer use a dev header).
+  const { user: currentRequester, token } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -103,7 +104,7 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
 
     try {
       const res = await fetch(`/api/tickets?${q.toString()}`, {
-        headers: { 'X-Dev-Requester-Id': currentRequester.id.toString() },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to fetch tickets.');
@@ -118,7 +119,7 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
     } finally {
       setLoading(false);
     }
-  }, [currentRequester, searchTerm, selectedCategory, selectedReqPriority, selectedItPriority, selectedStatus, sortField, sortOrder, page, limit]);
+  }, [currentRequester, token, searchTerm, selectedCategory, selectedReqPriority, selectedItPriority, selectedStatus, sortField, sortOrder, page, limit]);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
 

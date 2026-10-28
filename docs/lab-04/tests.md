@@ -54,8 +54,8 @@ Test accounts are the seeded local accounts documented in the README (Requester,
 | API-20 | API | AC-15 | Staff user with no owned Tickets or actions | Zeros and empty lists | `server/tests/lab-04/dashboard.api.test.ts` (DASH-03c) | Implemented |
 | API-21 | API | AC-16, FR-15 | Multi-status filter on both list endpoints equals dashboard card counts | Counts identical; invalid values ignored | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | SEC-01 | Security | AC-17 | Dashboard endpoints: no token, wrong role | 401 / 403; no metrics | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
-| SEC-02 | Security | AC-20, BR-20 | Protected endpoints with only `X-Dev-Requester-Id` | 401 | `server/tests/lab-03/authorization.api.test.ts` | Planned |
-| SEC-03 | Security | AC-04, AC-05, BR-21 | Lab 2 endpoints (tickets, attachments) enforce token identity and ownership | Unauthenticated 401; other Requester's data rejected without existence leak | `server/tests/lab-03/authorization.api.test.ts` | Planned |
+| SEC-02 | Security | AC-20, BR-20 | Protected endpoints with only `X-Dev-Requester-Id` | 401 | `server/tests/lab-03/authorization.api.test.ts` | Implemented |
+| SEC-03 | Security | AC-04, AC-05, BR-21 | Lab 2 endpoints (tickets, attachments) enforce token identity and ownership | Unauthenticated 401; other Requester's data rejected without existence leak | `server/tests/lab-03/authorization.api.test.ts` | Implemented |
 | MIG-01 | Migration | AC-18 | Legacy Ticket without actions lists empty; existing Tickets, comments, notes, attachments unchanged | Empty action list; counts unchanged | `server/tests/lab-04/migration-regression.api.test.ts` | Implemented |
 | MIG-02 | Migration | AC-19 | Seed run twice | Identical row counts; all statuses and 0/1/many actions present | `server/tests/lab-04/migration-regression.api.test.ts` | Implemented |
 | MIG-03 | Migration | AC-18 | Migration and rollback on a copy of a populated database (scripted evidence) | No data loss; rollback restores Lab 3 state | `docs/lab-04/specification.md` section 8.5 (evidence recorded under Final Results) | Planned |
@@ -74,7 +74,7 @@ Test accounts are the seeded local accounts documented in the README (Requester,
 | UI-10 | UI | AC-15, AC-23 | Staff dashboard loading, empty, forbidden, failure with Retry | Correct state for each | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
 | UI-11 | UI | AC-13, AC-16 | Requester dashboard renders cards and lists; drill-down to My Tickets filter | Values shown; correct filter passed | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
 | UI-12 | UI | AC-15, AC-23 | Requester dashboard loading, empty, failure | Correct state for each | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
-| UI-13 | UI | AC-21 | No Development Requester selector, Change Requester action, or header usage | Absent from the rendered application | `client/src/tests/lab-04/StaffDashboard.test.tsx`, `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Planned |
+| UI-13 | UI | AC-21 | No Development Requester selector, Change Requester action, or header usage | Absent from the rendered application | `client/src/tests/lab-04/StaffDashboard.test.tsx`, `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Implemented |
 | STYLE-01 | UI style | AC-24 | Required classes: action/follow-up badges, metric cards, read-only vs editable fields, required asterisk, error placement, `aria-current` on active nav | Assertions pass | `client/src/tests/lab-04/ActionsTaken.test.tsx`, `client/src/tests/lab-04/StaffDashboard.test.tsx`, `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Implemented |
 | RESP-01 | Responsive | AC-24 | Dashboards and Actions Taken at desktop, tablet, mobile: no horizontal scroll, no clipping, tap targets | `scrollWidth <= clientWidth`; checks pass; screenshots saved | `e2e/lab-04/dashboards.spec.ts`, `e2e/lab-04/actions-taken-flow.spec.ts` | Planned |
 | E2E-01 | E2E | AC-01, AC-02, AC-06, AC-07 | IT Staff adds, assigns, edits, completes, and cancels actions; validation errors; Ticket with several authors' actions | Flow completes; list correct | `e2e/lab-04/actions-taken-flow.spec.ts` | Planned |
@@ -180,7 +180,7 @@ The development database was built with `prisma db push`, so it had no migration
 
 - Migration `20260923000000_add_dashboard_indexes` creates `Ticket(requesterId, currentStatus)` and `Ticket(currentStatus, updatedAt)`. Row counts of every table were identical before and after; only `_prisma_migrations` gained one row.
 - Dashboard server tests are in one file (`dashboard.api.test.ts`, DASH-01..09 and FILTER-01/02) and dashboard UI tests in one file (`Dashboards.test.tsx`, DUI-01..09); the planned per-role file split was merged. Metric tests compare each value with a direct `prisma` count computed in the test.
-- UI-13 (no Development Requester selector) belongs to the hardening Issue and stays `Planned`.
+- UI-13 (no Development Requester selector) was left to the hardening Issue; see 6.5.
 - Finding fixed on the way: the Requester list endpoint (`GET /api/tickets`) accepted `status` but never applied it to its SQL query. It now filters (single value or comma-separated list), so a card value and the drill-down list count match.
 - Intentional change to existing tests: the default landing page is now the Dashboard (spec 2), so the Lab 2 `CreateTicket.test.tsx` helper opens My Tickets before its flows. No Lab 2 expectation changed.
 - Manual check in the browser on the seed database: the Unassigned card (152) opened the Ticket Queue showing "152 tickets"; the Requester Open card opened My Tickets with the combined status filter.
@@ -193,7 +193,18 @@ The development database was built with `prisma db push`, so it had no migration
 - The Dashboard API test now deletes the accounts it creates, so repeated runs no longer leave `dash.*` users behind. One older leftover account that already owns a Ticket was not removed.
 - Card accessibility: the "Needs your reply" cue is linked to the card with `aria-describedby`.
 
+### 6.5 Auth cleanup and final hardening (Issue: Auth Cleanup and Final Hardening)
+
+- Vulnerability proof first: before the fix, `GET /api/auth/me` with only an administrator's `X-Dev-Requester-Id` header and no token returned 200. SEC-02 failed against that behaviour and passes after the header fallback was removed from `requireAuth` (`server/tests/lab-03/authorization.api.test.ts`).
+- Lab 2 endpoints (create/list/detail ticket, attachments, status) now use token identity and the Requester role only; `GET /api/requesters` was removed. Tickets and Actions owned by someone else return the same `404 TICKET_NOT_FOUND` as a missing ticket (BR-21).
+- Intentional change to existing tests: Lab 2 API-07b and Lab 4 workflow API-12 now expect 404 instead of 403 for a non-owner; all Lab 2/3/4 server tests authenticate with bearer tokens (`server/tests/helpers/auth.ts`). Expected results of the Lab 2 UI tests are unchanged.
+- The Development Requester selector, `RequesterContext` and header usage were removed from the client; UI-13 is covered by the rewritten Create Ticket UI-01 and the Lab 2 screen tests that now use the authenticated user.
+- Double-submit protection is tested for Create Ticket (UI-05) and Post Comment (COM-UI-04): two quick clicks send one request.
+- Accessibility: the four existing modals now have `role="dialog"`, `aria-modal`, `aria-labelledby`, a labelled close button and close on Esc.
+- `server/generated/` is no longer tracked; `postinstall` runs `prisma generate`.
+- Manual check in the browser as Requester and Administrator: every API call returned 200 and the console showed no errors.
+
 ## 7. Known Limitations or Deferred Tests
 
-To be completed at the end of the sprint. Any skipped or deferred test must be listed here with its reason; none are planned at this time.
+To be completed at the end of the sprint. Any skipped or deferred test must be listed here with its reason; none are planned at this time. Attachment endpoints still answer 403 (not 404) to a non-owner, because the specification lists the 404 rule only for Tickets and Actions.
 

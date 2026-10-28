@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useRequester } from '../context/RequesterContext';
+import { useAuth } from '../context/AuthContext';
 
 interface CategoryOption {
   id: number;
@@ -16,7 +16,8 @@ interface CreateTicketScreenProps {
 }
 
 export const CreateTicketScreen: React.FC<CreateTicketScreenProps> = ({ onNavigate }) => {
-  const { currentRequester, getAuthHeaders } = useRequester();
+  const { user: currentRequester, token } = useAuth();
+  const getAuthHeaders = () => ({ Authorization: `Bearer ${token}` });
 
   // Form State
   const [categoryId, setCategoryId] = useState<string>('');

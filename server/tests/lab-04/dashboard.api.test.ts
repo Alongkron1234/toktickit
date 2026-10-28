@@ -235,13 +235,13 @@ describe('Lab 4 Dashboard API', () => {
     const dash = await request(app).get('/api/dashboard/requester').set(auth(jennifer.token));
     const list = await request(app)
       .get('/api/tickets?status=NEW,OPEN,REOPENED&limit=100')
-      .set('X-Dev-Requester-Id', String(jennifer.id));
+      .set(auth(jennifer.token));
     expect(list.status).toBe(200);
     expect(list.body.pagination.totalCount).toBe(dash.body.data.metrics.open);
 
     const single = await request(app)
       .get('/api/tickets?status=resolved&limit=100')
-      .set('X-Dev-Requester-Id', String(jennifer.id));
+      .set(auth(jennifer.token));
     expect(single.body.pagination.totalCount).toBe(dash.body.data.metrics.resolved);
   });
 });
