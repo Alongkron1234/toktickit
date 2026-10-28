@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate, getPaginationPages } from '../utils/badges';
 
@@ -84,7 +84,12 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
     return () => { isMounted = false; };
   }, []);
 
+  // Only the most recent request may update the screen, so a slow older response cannot overwrite a newer one.
+  const latestRequest = useRef(0);
+
   const fetchTickets = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     if (!currentRequester) {
       setLoading(false);
       return;
@@ -107,6 +112,7 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
+      if (isStale()) return;
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to fetch tickets.');
 
       let data: TicketItem[] = result.data || [];
@@ -115,9 +121,10 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
       setTickets(data);
       if (result.pagination) setPagination(result.pagination);
     } catch (err: any) {
+      if (isStale()) return;
       setError(err.message || 'Unable to load tickets. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [currentRequester, token, searchTerm, selectedCategory, selectedReqPriority, selectedItPriority, selectedStatus, sortField, sortOrder, page, limit]);
 

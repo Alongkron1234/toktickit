@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate, getPaginationPages } from '../utils/badges';
 
@@ -77,7 +77,12 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
 
+  // Only the most recent request may update the screen, so a slow older response cannot overwrite a newer one.
+  const latestRequest = useRef(0);
+
   const fetchTickets = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     if (!token) {
       setLoading(false);
       return;
@@ -102,6 +107,8 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (isStale()) return;
+
       // Session expired or invalid — sign out and let the app fall back to the Login screen.
       if (res.status === 401) {
         await logout();
@@ -118,14 +125,16 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
       }
 
       const result = await res.json();
+      if (isStale()) return;
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to fetch ticket queue.');
 
       setTickets(result.data.tickets || []);
       if (result.data.pagination) setPagination(result.data.pagination);
     } catch (err: any) {
+      if (isStale()) return;
       setError(err.message || 'Unable to load the ticket queue. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [token, user, searchTerm, status, priority, ownerFilter, sortBy, sortOrder, page, limit, logout]);
 
