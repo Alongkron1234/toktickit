@@ -12,12 +12,12 @@ export const USERS = {
   admin: 'john.smith@toktickit.com',
 };
 
-export async function uiLogin(page: Page, email: string) {
+export async function uiLogin(page: Page, email: string, password = PASSWORD) {
   await page.goto(WEB);
   const emailInput = page.locator('input[placeholder="name@toktickit.com"]');
   await emailInput.waitFor({ state: 'visible', timeout: 15000 });
   await emailInput.fill(email);
-  await page.fill('input[placeholder="••••••••"]', PASSWORD);
+  await page.fill('input[placeholder="••••••••"]', password);
   await page.click('button:has-text("Sign In")');
   await expect(page.getByRole('heading', { name: /Welcome back/ })).toBeVisible({ timeout: 15000 });
 }
