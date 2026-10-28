@@ -42,3 +42,17 @@ export function evaluateResolutionGate(
   if (!resolutionSummary || resolutionSummary.trim().length === 0) reasons.push({ reason: 'MISSING_RESOLUTION_SUMMARY' });
   return { ok: reasons.length === 0, reasons };
 }
+
+const ALL_STATUSES: StatusName[] = [
+  'NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED',
+];
+
+// Multi-status filter (api-spec 8.1): comma-separated, case-insensitive, unknown values ignored.
+export function parseStatusList(value: unknown): StatusName[] {
+  if (typeof value !== 'string') return [];
+  const parsed = value
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s): s is StatusName => (ALL_STATUSES as string[]).includes(s));
+  return Array.from(new Set(parsed));
+}

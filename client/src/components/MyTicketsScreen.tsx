@@ -36,6 +36,7 @@ export interface CategoryOption {
 export interface MyTicketsScreenProps {
   onSelectTicket?: (ticketId: number) => void;
   onNavigateToCreate?: () => void;
+  initialStatus?: string; // single status or comma-separated list (dashboard drill-down)
 }
 
 // Shared th style for table header
@@ -49,14 +50,14 @@ const thStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
-export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket, onNavigateToCreate }) => {
+export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket, onNavigateToCreate, initialStatus }) => {
   const { currentRequester } = useRequester();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedReqPriority, setSelectedReqPriority] = useState('');
   const [selectedItPriority, setSelectedItPriority] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus ?? '');
   const [sortField, setSortField] = useState<'createdAt' | 'ticketNumber'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
@@ -251,9 +252,16 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
               <select id="ticket-status-select" className="form-select" value={selectedStatus}
                 onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }} style={{ ...selectStyle, fontSize: '0.82rem', height: '38px', width: '100%' }}>
                 <option value="">All Statuses</option>
+                {selectedStatus.includes(',') && (
+                  <option value={selectedStatus}>
+                    {selectedStatus.split(',').map((x) => x.charAt(0) + x.slice(1).toLowerCase().replace(/_/g, ' ')).join(' + ')}
+                  </option>
+                )}
                 <option value="NEW">New</option>
                 <option value="OPEN">Open</option>
                 <option value="IN_PROGRESS">In Progress</option>
+                <option value="WAITING_FOR_REQUESTER">Waiting for Requester</option>
+                <option value="REOPENED">Reopened</option>
                 <option value="RESOLVED">Resolved</option>
                 <option value="CLOSED">Closed</option>
               </select>

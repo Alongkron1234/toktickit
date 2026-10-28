@@ -12,8 +12,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
-import { getAllowedTransitions, evaluateResolutionGate } from './workflow';
+import { PrismaClient, Priority, TicketStatus, Role, ActionStatus } from '../generated/prisma/client';
+import { getAllowedTransitions, evaluateResolutionGate, parseStatusList } from './workflow';
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
 const pool = new Pool({ connectionString });
@@ -625,10 +625,8 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
       whereClause.requestedPriority = requestedPriority.trim().toUpperCase();
     }
 
-    // Status Filter
-    if (status && typeof status === 'string' && status.trim()) {
-      whereClause.currentStatus = status.trim().toUpperCase();
-    }
+    // Status Filter (single value or comma-separated list)
+    const statusList = parseStatusList(status);
 
     // Sorting
     const validSortFields = ['createdAt', 'ticketNumber'];
@@ -653,12 +651,16 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
       LEFT JOIN "Category" c ON t."categoryId" = c.id
       LEFT JOIN "RelatedSystem" s ON t."relatedSystemId" = s.id
       WHERE t."requesterId" = $1
+      ${statusList.length > 0 ? `AND t."currentStatus"::text = ANY($2)` : ''}
       ${catIdNum ? `AND t."categoryId" = ${catIdNum}` : ''}
       ${prioStr ? `AND t."requestedPriority" = '${prioStr}'` : ''}
       ORDER BY t."${sortField}" ${sortDirection.toUpperCase()}
     `;
 
-    const poolResult = await pool.query(sql, [req.currentRequester!.id]);
+    const poolResult = await pool.query(
+      sql,
+      statusList.length > 0 ? [req.currentRequester!.id, statusList] : [req.currentRequester!.id]
+    );
     const allTickets = poolResult.rows.map((r: any) => ({
       id: r.id,
       ticketNumber: r.ticketNumber ?? r.ticketnumber,
@@ -1322,8 +1324,9 @@ app.get(
         ];
       }
 
-      if (typeof status === 'string' && Object.values(TicketStatus).includes(status.toUpperCase() as TicketStatus)) {
-        where.currentStatus = status.toUpperCase() as TicketStatus;
+      const statusList = parseStatusList(status);
+      if (statusList.length > 0) {
+        where.currentStatus = { in: statusList as TicketStatus[] };
       }
 
       if (typeof priority === 'string' && Object.values(Priority).includes(priority.toUpperCase() as Priority)) {
@@ -2391,6 +2394,193 @@ app.post(
       res.status(500).json({
         success: false,
         error: { code: 'RESET_PASSWORD_ERROR', message: 'Failed to reset password.' },
+      });
+    }
+  }
+);
+
+
+// ---------------------------------------------------------------------------
+// Lab 4: Dashboards (specification.md 8.4, api-spec.md 7). All numbers are calculated here.
+// ---------------------------------------------------------------------------
+const ACTIVE_STATUSES: TicketStatus[] = [
+  TicketStatus.NEW,
+  TicketStatus.OPEN,
+  TicketStatus.IN_PROGRESS,
+  TicketStatus.WAITING_FOR_REQUESTER,
+  TicketStatus.REOPENED,
+];
+const RECENT_LIMIT = 5;
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const DASHBOARD_TICKET_SELECT = {
+  id: true,
+  ticketNumber: true,
+  summary: true,
+  currentStatus: true,
+  updatedAt: true,
+} as const;
+
+function sumStatuses(counts: Record<string, number>, statuses: TicketStatus[]): number {
+  return statuses.reduce((total, s) => total + (counts[s] ?? 0), 0);
+}
+
+app.get(
+  '/api/dashboard/requester',
+  requireAuth,
+  requireRole(Role.REQUESTER),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const requesterId = req.user!.id;
+      const since = new Date(Date.now() - RECENT_WINDOW_MS);
+
+      const [grouped, recentlyUpdated, recentlyResolved] = await Promise.all([
+        prisma.ticket.groupBy({ by: ['currentStatus'], where: { requesterId }, _count: { _all: true } }),
+        prisma.ticket.findMany({
+          where: { requesterId },
+          orderBy: { updatedAt: 'desc' },
+          take: RECENT_LIMIT,
+          select: DASHBOARD_TICKET_SELECT,
+        }),
+        prisma.ticket.findMany({
+          where: {
+            requesterId,
+            currentStatus: { in: [TicketStatus.RESOLVED, TicketStatus.CLOSED] },
+            updatedAt: { gte: since },
+          },
+          orderBy: { updatedAt: 'desc' },
+          take: RECENT_LIMIT,
+          select: DASHBOARD_TICKET_SELECT,
+        }),
+      ]);
+
+      const counts: Record<string, number> = {};
+      for (const g of grouped) counts[g.currentStatus] = g._count._all;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          generatedAt: new Date().toISOString(),
+          metrics: {
+            open: sumStatuses(counts, [TicketStatus.NEW, TicketStatus.OPEN, TicketStatus.REOPENED]),
+            inProgress: sumStatuses(counts, [TicketStatus.IN_PROGRESS]),
+            waitingForRequester: sumStatuses(counts, [TicketStatus.WAITING_FOR_REQUESTER]),
+            resolved: sumStatuses(counts, [TicketStatus.RESOLVED]),
+            closed: sumStatuses(counts, [TicketStatus.CLOSED]),
+          },
+          recentlyUpdated,
+          recentlyResolved,
+        },
+      });
+    } catch (error) {
+      console.error('Error building requester dashboard:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'DASHBOARD_ERROR', message: 'Failed to load the dashboard.' },
+      });
+    }
+  }
+);
+
+app.get(
+  '/api/dashboard/staff',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const me = req.user!;
+      const isAdmin = me.role === Role.ADMINISTRATOR;
+
+      const [byStatus, myAssigned, unassigned, byPriority, myRecentTickets, myOpenActions, myRecentActions, userGroups] =
+        await Promise.all([
+          prisma.ticket.groupBy({ by: ['currentStatus'], _count: { _all: true } }),
+          prisma.ticket.count({ where: { ownerId: me.id, currentStatus: { in: ACTIVE_STATUSES } } }),
+          prisma.ticket.count({ where: { ownerId: null, currentStatus: { in: ACTIVE_STATUSES } } }),
+          prisma.ticket.groupBy({
+            by: ['itPriority'],
+            where: { currentStatus: { in: ACTIVE_STATUSES } },
+            _count: { _all: true },
+          }),
+          prisma.ticket.findMany({
+            where: { ownerId: me.id },
+            orderBy: { updatedAt: 'desc' },
+            take: RECENT_LIMIT,
+            select: DASHBOARD_TICKET_SELECT,
+          }),
+          prisma.actionTaken.count({ where: { assigneeId: me.id, status: ActionStatus.OPEN } }),
+          prisma.actionTaken.findMany({
+            where: { performedById: me.id },
+            orderBy: { actionAt: 'desc' },
+            take: RECENT_LIMIT,
+            select: {
+              id: true,
+              ticketId: true,
+              description: true,
+              status: true,
+              actionAt: true,
+              ticket: { select: { ticketNumber: true } },
+            },
+          }),
+          isAdmin ? prisma.user.groupBy({ by: ['role', 'isActive'], _count: { _all: true } }) : Promise.resolve([]),
+        ]);
+
+      const counts: Record<string, number> = {};
+      for (const g of byStatus) counts[g.currentStatus] = g._count._all;
+
+      const priorities: Record<string, number> = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
+      for (const g of byPriority) priorities[g.itPriority] = g._count._all;
+
+      let userCounts: null | {
+        active: number;
+        inactive: number;
+        activeByRole: Record<string, number>;
+      } = null;
+      if (isAdmin) {
+        userCounts = {
+          active: 0,
+          inactive: 0,
+          activeByRole: { REQUESTER: 0, IT_STAFF: 0, ADMINISTRATOR: 0 },
+        };
+        for (const g of userGroups as { role: string; isActive: boolean; _count: { _all: number } }[]) {
+          if (g.isActive) {
+            userCounts.active += g._count._all;
+            userCounts.activeByRole[g.role] = g._count._all;
+          } else {
+            userCounts.inactive += g._count._all;
+          }
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          generatedAt: new Date().toISOString(),
+          metrics: {
+            new: sumStatuses(counts, [TicketStatus.NEW]),
+            open: sumStatuses(counts, [TicketStatus.OPEN, TicketStatus.REOPENED]),
+            inProgress: sumStatuses(counts, [TicketStatus.IN_PROGRESS]),
+            waitingForRequester: sumStatuses(counts, [TicketStatus.WAITING_FOR_REQUESTER]),
+            myAssigned,
+            unassigned,
+            myOpenActions,
+            byItPriority: priorities,
+          },
+          myRecentTickets,
+          myRecentActions: myRecentActions.map((a) => ({
+            id: a.id,
+            ticketId: a.ticketId,
+            ticketNumber: a.ticket.ticketNumber,
+            description: a.description,
+            status: a.status,
+            actionAt: a.actionAt,
+          })),
+          userCounts,
+        },
+      });
+    } catch (error) {
+      console.error('Error building staff dashboard:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'DASHBOARD_ERROR', message: 'Failed to load the dashboard.' },
       });
     }
   }
