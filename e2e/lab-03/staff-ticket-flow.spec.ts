@@ -57,8 +57,13 @@ test.describe('Issue 7: IT Staff Ticket Queue & Detail Workflow End-to-End Tests
     // (claim -> priority -> status -> comments -> notes) has a deterministic
     // starting point, independent of whatever manual/other test data exists.
     const api = await playwrightRequest.newContext({ baseURL: 'http://localhost:5001' });
+    // Lab 4: Requester endpoints identify the caller by token only, so log in as the Requester first.
+    const login = await api.post('/api/auth/login', {
+      data: { email: 'jennifer.anderson@example.com', password: 'InitialPassword123!' },
+    });
+    const requesterToken = (await login.json()).data.token as string;
     const created = await api.post('/api/tickets', {
-      headers: { 'X-Dev-Requester-Id': '1' },
+      headers: { Authorization: `Bearer ${requesterToken}` },
       data: {
         summary: 'E2E staff workflow fixture ticket',
         description: 'Created for the Lab 3 staff-ticket-flow E2E spec.',

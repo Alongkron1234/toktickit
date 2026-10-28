@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRequester } from '../context/RequesterContext';
+import { useAuth } from '../context/AuthContext';
 import { ActionsTakenSection } from './ActionsTakenSection';
 
 export interface AttachmentItem {
@@ -55,7 +55,7 @@ export interface TicketDetailScreenProps {
 }
 
 export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId, onBack }) => {
-  const { currentRequester } = useRequester();
+  const { user: currentRequester, token } = useAuth();
 
   const [ticket, setTicket] = useState<TicketDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,7 +115,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     try {
       const response = await fetch(`/api/tickets/${ticketId}/comments`, {
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -132,7 +132,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     } finally {
       setCommentsLoading(false);
     }
-  }, [ticketId, currentRequester]);
+  }, [ticketId, currentRequester, token]);
 
   // Fetch Ticket Detail
   const fetchTicketDetail = useCallback(async () => {
@@ -147,7 +147,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     try {
       const response = await fetch(`/api/tickets/${ticketId}`, {
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -165,7 +165,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     } finally {
       setLoading(false);
     }
-  }, [ticketId, currentRequester, fetchComments]);
+  }, [ticketId, currentRequester, token, fetchComments]);
 
   useEffect(() => {
     fetchTicketDetail();
@@ -178,7 +178,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     try {
       const res = await fetch(`/api/attachments/${attachment.id}/download`, {
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -216,7 +216,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
       const res = await fetch(`/api/tickets/${ticketId}/attachments`, {
         method: 'POST',
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -262,7 +262,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           removalReason: removalReason.trim(),
@@ -299,7 +299,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           body: newCommentText.trim(),
@@ -337,7 +337,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: 'REOPENED',
@@ -699,7 +699,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
           <div className="card-body p-3 p-md-4">
             <ActionsTakenSection
               ticketId={ticketId}
-              getHeaders={() => ({ 'X-Dev-Requester-Id': currentRequester.id.toString() })}
+              getHeaders={() => ({ Authorization: `Bearer ${token}` })}
               readOnly
             />
           </div>

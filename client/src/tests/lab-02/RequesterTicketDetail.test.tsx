@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RequesterContext } from '../../context/RequesterContext';
+import { AuthContext } from '../../context/AuthContext';
 import { TicketDetailScreen } from '../../components/TicketDetailScreen';
 
 const mockRequester = {
@@ -40,20 +40,19 @@ describe('Requester Ticket Detail Read-Only View Tests (Lab 2 - Issue 8)', () =>
 
   const renderWithContext = (ui: React.ReactNode) => {
     return render(
-      <RequesterContext.Provider
+      <AuthContext.Provider
         value={{
-          currentRequester: mockRequester,
-          requesters: [mockRequester],
-          loading: false,
-          error: null,
-          selectRequester: vi.fn(),
-          clearRequester: vi.fn(),
-          fetchRequesters: vi.fn(),
-          getAuthHeaders: () => ({ 'X-Dev-Requester-Id': '1' }),
-        }}
+          user: { ...mockRequester, role: 'REQUESTER', isActive: true, requiresPasswordChange: false },
+          token: 'test-token',
+          isLoading: false,
+          login: vi.fn(),
+          logout: vi.fn(),
+          changePassword: vi.fn(),
+          refreshUser: vi.fn(),
+        } as never}
       >
         {ui}
-      </RequesterContext.Provider>
+      </AuthContext.Provider>
     );
   };
 

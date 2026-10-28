@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { TicketDetailScreen } from '../../components/TicketDetailScreen';
-import { RequesterContext } from '../../context/RequesterContext';
+import { AuthContext } from '../../context/AuthContext';
 
 const mockRequester = {
   id: 1,
@@ -23,16 +23,19 @@ describe('Lab 3 TicketDetailScreen Comments & Reopen Tests', () => {
 
   const renderScreen = () => {
     return render(
-      <RequesterContext.Provider
+      <AuthContext.Provider
         value={{
-          currentRequester: mockRequester,
-          setRequester: vi.fn(),
-          requestersList: [mockRequester],
-          loading: false,
-        }}
+          user: { ...mockRequester, role: 'REQUESTER', isActive: true, requiresPasswordChange: false },
+          token: 'test-token',
+          isLoading: false,
+          login: vi.fn(),
+          logout: vi.fn(),
+          changePassword: vi.fn(),
+          refreshUser: vi.fn(),
+        } as never}
       >
         <TicketDetailScreen ticketId={1} onBack={vi.fn()} />
-      </RequesterContext.Provider>
+      </AuthContext.Provider>
     );
   };
 

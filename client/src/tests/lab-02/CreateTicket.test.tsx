@@ -22,18 +22,6 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
       const urlStr = typeof url === 'string' ? url : (url as Request).url;
       const method = init?.method || 'GET';
 
-      if (urlStr.includes('/api/requesters')) {
-        return {
-          ok: true,
-          json: async () => ({
-            success: true,
-            data: [
-              { id: 1, name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', isActive: true },
-            ],
-          }),
-        } as Response;
-      }
-
       if (urlStr.includes('/api/categories')) {
         return {
           ok: true,
@@ -104,32 +92,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
     });
   };
 
-  it('UI-01: Requester Selection dropdown renders active users and handles selection', async () => {
-    vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
-      const urlStr = typeof url === 'string' ? url : (url as Request).url;
-      if (urlStr.includes('/api/requesters')) {
-        return {
-          ok: true,
-          json: async () => ({
-            success: true,
-            data: [
-              { id: 1, name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', isActive: true },
-              { id: 2, name: 'Michael Brown', email: 'michael.brown@example.com', isActive: true },
-            ],
-          }),
-        } as Response;
-      }
-      if (urlStr.includes('/api/categories')) {
-        return { ok: true, json: async () => [] } as Response;
-      }
-      if (urlStr.includes('/api/tickets')) {
-        return { ok: true, json: async () => ({ success: true, data: [], pagination: {} }) } as Response;
-      }
-      return { ok: false, json: async () => ({}) } as Response;
-    });
-
-    render(<App />);
-
+  it('UI-01: a signed-in Requester sees their own session; no Development Requester selector or lookup remains', async () => {
     localStorage.setItem('toktickit_user', JSON.stringify({
       id: 1,
       name: 'Jennifer Anderson',
@@ -138,15 +101,19 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
       isActive: true,
       requiresPasswordChange: false,
     }));
+    localStorage.setItem('toktickit_token', 'mock_test_token');
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async () => {
+      return { ok: true, json: async () => ({ success: true, data: [], pagination: {} }) } as Response;
+    });
 
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByText(/Jennifer Anderson/i)).toBeInTheDocument();
     });
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
-    });
+    expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Change Requester|Development Requester|Select a Requester/i)).not.toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/api/requesters'))).toBe(false);
   });
 
   it('UI-02: Renders Create Ticket form and loads option dropdowns', async () => {
