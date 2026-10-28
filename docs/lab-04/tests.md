@@ -51,7 +51,7 @@ Test accounts are the seeded local accounts documented in the README (Requester,
 | API-17 | API | AC-15, BR-19 | Requester with no Tickets | All zeros, empty lists, 200 | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | API-18 | API | AC-14, BR-15 | Staff metrics (statuses, myAssigned, unassigned, priority, actions) equal direct database queries | Equal for every metric | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | API-19 | API | AC-14, FR-13 | Recent lists limited to 5 and ordered; Administrator gets `userCounts`, IT Staff gets `null` | As specified | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
-| API-20 | API | AC-15 | Staff user with no owned Tickets or actions | Zeros and empty lists | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned |
+| API-20 | API | AC-15 | Staff user with no owned Tickets or actions | Zeros and empty lists | `server/tests/lab-04/dashboard.api.test.ts` (DASH-03c) | Implemented |
 | API-21 | API | AC-16, FR-15 | Multi-status filter on both list endpoints equals dashboard card counts | Counts identical; invalid values ignored | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | SEC-01 | Security | AC-17 | Dashboard endpoints: no token, wrong role | 401 / 403; no metrics | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | SEC-02 | Security | AC-20, BR-20 | Protected endpoints with only `X-Dev-Requester-Id` | 401 | `server/tests/lab-03/authorization.api.test.ts` | Planned |
@@ -180,10 +180,18 @@ The development database was built with `prisma db push`, so it had no migration
 
 - Migration `20260923000000_add_dashboard_indexes` creates `Ticket(requesterId, currentStatus)` and `Ticket(currentStatus, updatedAt)`. Row counts of every table were identical before and after; only `_prisma_migrations` gained one row.
 - Dashboard server tests are in one file (`dashboard.api.test.ts`, DASH-01..09 and FILTER-01/02) and dashboard UI tests in one file (`Dashboards.test.tsx`, DUI-01..09); the planned per-role file split was merged. Metric tests compare each value with a direct `prisma` count computed in the test.
-- API-20 (a staff user with no owned Tickets or actions) is not asserted separately yet and UI-13 (no Development Requester selector) belongs to the hardening Issue; both stay `Planned`.
+- UI-13 (no Development Requester selector) belongs to the hardening Issue and stays `Planned`.
 - Finding fixed on the way: the Requester list endpoint (`GET /api/tickets`) accepted `status` but never applied it to its SQL query. It now filters (single value or comma-separated list), so a card value and the drill-down list count match.
 - Intentional change to existing tests: the default landing page is now the Dashboard (spec 2), so the Lab 2 `CreateTicket.test.tsx` helper opens My Tickets before its flows. No Lab 2 expectation changed.
 - Manual check in the browser on the seed database: the Unassigned card (152) opened the Ticket Queue showing "152 tickets"; the Requester Open card opened My Tickets with the combined status filter.
+
+### 6.4 Seed coverage follow-up (Issue: Dashboard follow-up)
+
+- `seed.ts` now adds five Tickets (`TKT-2026-001225` to `001229`) so that all eight statuses exist, and an active Requester without Tickets (`emma.wilson@example.com`) for the Requester Dashboard zero state. Test: `SEED-01` (all eight statuses) and `DASH-03b` (Emma's zero state) in `dashboard.api.test.ts`.
+- The numbers `001225` to `001229` were chosen on purpose: `001235` to `001239` were already used by older test-created Tickets on the development database, and the app generates numbers as `max + 1`, so it can never produce a number below `001234`.
+- Seed run twice on the populated development database: the first run added exactly 5 Tickets and 1 User; the second run left every table count unchanged (Ticket 233, User 52, ActionTaken 62, Attachment 41, PublicComment 177, InternalNote 61, Category 4, RelatedSystem 7). No migration was needed.
+- The Dashboard API test now deletes the accounts it creates, so repeated runs no longer leave `dash.*` users behind. One older leftover account that already owns a Ticket was not removed.
+- Card accessibility: the "Needs your reply" cue is linked to the card with `aria-describedby`.
 
 ## 7. Known Limitations or Deferred Tests
 
