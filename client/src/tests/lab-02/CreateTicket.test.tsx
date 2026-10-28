@@ -178,4 +178,29 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
       expect(screen.getByText(/TKT-2026-000001/i)).toBeInTheDocument();
     });
   });
+  it('UI-05: double-clicking Submit Ticket creates exactly one ticket (no duplicate request)', async () => {
+    await setupSelectedRequester();
+
+    fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: /^Create Ticket$/i }));
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Category/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/Category/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/Related System/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/Summary/i), { target: { value: 'Unable to connect to campus wifi' } });
+    fireEvent.change(screen.getByLabelText(/Description/i), { target: { value: 'Wi-Fi disconnects every 5 minutes in Library.' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Submit Ticket/i });
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Ticket Created Successfully!/i)).toBeInTheDocument();
+    });
+    const posts = (global.fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls.filter(
+      ([url, init]) => String(url).endsWith('/api/tickets') && init?.method === 'POST'
+    );
+    expect(posts).toHaveLength(1);
+  });
 });
