@@ -104,6 +104,8 @@ model Ticket {
   @@index([requesterId, createdAt])
   @@index([ownerId, currentStatus])
   @@index([ticketNumber])
+  @@index([requesterId, currentStatus])
+  @@index([currentStatus, updatedAt])
 }
 
 model Attachment {

@@ -23,8 +23,16 @@ export interface StaffQueuePagination {
   limit: number;
 }
 
+export interface QueueFilters {
+  status?: string; // single status or comma-separated list
+  priority?: string;
+  ownerId?: 'me' | 'unassigned';
+  focusSearch?: boolean; // dashboard "Search Tickets": land with the search box focused
+}
+
 export interface StaffTicketQueueProps {
   onSelectTicket?: (ticketId: number) => void;
+  initialFilters?: QueueFilters;
 }
 
 const thStyle: React.CSSProperties = {
@@ -51,13 +59,13 @@ const selectStyle: React.CSSProperties = {
 const STATUS_OPTIONS = ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED'];
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTicket }) => {
+export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTicket, initialFilters }) => {
   const { user, token, logout } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [status, setStatus] = useState('');
-  const [priority, setPriority] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState<'' | 'unassigned' | 'me'>('');
+  const [status, setStatus] = useState(initialFilters?.status ?? '');
+  const [priority, setPriority] = useState(initialFilters?.priority ?? '');
+  const [ownerFilter, setOwnerFilter] = useState<'' | 'unassigned' | 'me'>(initialFilters?.ownerId ?? '');
   const [sortBy, setSortBy] = useState<'createdAt' | 'itPriority' | 'currentStatus' | 'ticketNumber'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -180,6 +188,7 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
                 </span>
                 <input
                   id="staff-queue-search-input"
+                  autoFocus={initialFilters?.focusSearch}
                   type="text"
                   className="form-control border-start-0 ps-1"
                   placeholder="Search by ticket number or summary..."
@@ -195,6 +204,9 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
               <select id="staff-queue-status-select" className="form-select" value={status}
                 onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={selectStyle}>
                 <option value="">All Statuses</option>
+                {status.includes(',') && (
+                  <option value={status}>{status.split(',').map(formatStatus).join(' + ')}</option>
+                )}
                 {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{formatStatus(s)}</option>)}
               </select>
             </div>

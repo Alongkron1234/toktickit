@@ -46,14 +46,14 @@ Test accounts are the seeded local accounts documented in the README (Requester,
 | API-12 | API | AC-10, BR-11 | Requester reopens own RESOLVED/CLOSED Ticket; another Requester's Ticket | Own: 200 REOPENED; other's: rejected | `server/tests/lab-04/ticket-workflow.api.test.ts` | Implemented |
 | API-13 | API | AC-11, BR-13 | Two actors with the same version: first succeeds, second stale | Second 409 `STALE_UPDATE`; first change preserved; version incremented once | `server/tests/lab-04/ticket-workflow.api.test.ts` | Implemented |
 | API-14 | API | AC-12, FR-11 | Ticket detail returns `version`, `allowedTransitions`, `openActionsCount` | Values match the matrix and database | `server/tests/lab-04/ticket-workflow.api.test.ts` | Implemented |
-| API-15 | API | AC-13, BR-16 | Requester dashboard for A vs B | Only own metrics and Tickets | `server/tests/lab-04/requester-dashboard.api.test.ts` | Planned |
-| API-16 | API | AC-14, BR-15, BR-17 | Requester metrics equal direct database counts | Equal for every metric | `server/tests/lab-04/requester-dashboard.api.test.ts` | Planned |
-| API-17 | API | AC-15, BR-19 | Requester with no Tickets | All zeros, empty lists, 200 | `server/tests/lab-04/requester-dashboard.api.test.ts` | Planned |
-| API-18 | API | AC-14, BR-15 | Staff metrics (statuses, myAssigned, unassigned, priority, actions) equal direct database queries | Equal for every metric | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned |
-| API-19 | API | AC-14, FR-13 | Recent lists limited to 5 and ordered; Administrator gets `userCounts`, IT Staff gets `null` | As specified | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned |
+| API-15 | API | AC-13, BR-16 | Requester dashboard for A vs B | Only own metrics and Tickets | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
+| API-16 | API | AC-14, BR-15, BR-17 | Requester metrics equal direct database counts | Equal for every metric | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
+| API-17 | API | AC-15, BR-19 | Requester with no Tickets | All zeros, empty lists, 200 | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
+| API-18 | API | AC-14, BR-15 | Staff metrics (statuses, myAssigned, unassigned, priority, actions) equal direct database queries | Equal for every metric | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
+| API-19 | API | AC-14, FR-13 | Recent lists limited to 5 and ordered; Administrator gets `userCounts`, IT Staff gets `null` | As specified | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | API-20 | API | AC-15 | Staff user with no owned Tickets or actions | Zeros and empty lists | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned |
-| API-21 | API | AC-16, FR-15 | Multi-status filter on both list endpoints equals dashboard card counts | Counts identical; invalid values ignored | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned |
-| SEC-01 | Security | AC-17 | Dashboard endpoints: no token, wrong role | 401 / 403; no metrics | `server/tests/lab-04/requester-dashboard.api.test.ts`, `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned |
+| API-21 | API | AC-16, FR-15 | Multi-status filter on both list endpoints equals dashboard card counts | Counts identical; invalid values ignored | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
+| SEC-01 | Security | AC-17 | Dashboard endpoints: no token, wrong role | 401 / 403; no metrics | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | SEC-02 | Security | AC-20, BR-20 | Protected endpoints with only `X-Dev-Requester-Id` | 401 | `server/tests/lab-03/authorization.api.test.ts` | Planned |
 | SEC-03 | Security | AC-04, AC-05, BR-21 | Lab 2 endpoints (tickets, attachments) enforce token identity and ownership | Unauthenticated 401; other Requester's data rejected without existence leak | `server/tests/lab-03/authorization.api.test.ts` | Planned |
 | MIG-01 | Migration | AC-18 | Legacy Ticket without actions lists empty; existing Tickets, comments, notes, attachments unchanged | Empty action list; counts unchanged | `server/tests/lab-04/migration-regression.api.test.ts` | Implemented |
@@ -61,7 +61,7 @@ Test accounts are the seeded local accounts documented in the README (Requester,
 | MIG-03 | Migration | AC-18 | Migration and rollback on a copy of a populated database (scripted evidence) | No data loss; rollback restores Lab 3 state | `docs/lab-04/specification.md` section 8.5 (evidence recorded under Final Results) | Planned |
 | REG-01 | Regression | AC-25, FR-19 | Complete Lab 1, Lab 2, and Lab 3 server suites | All pass | `server/tests/lab-01/`, `server/tests/lab-02/`, `server/tests/lab-03/` | Planned |
 | REG-02 | Regression | AC-25, FR-19 | Complete client suites for Labs 1-3 | All pass | `client/src/tests/lab-01/`, `client/src/tests/lab-02/`, `client/src/tests/lab-03/` | Planned |
-| PERF-01 | Performance smoke | AC-26 | Both dashboard endpoints on seed data | Each responds within 1000 ms | `server/tests/lab-04/staff-dashboard.api.test.ts`, `server/tests/lab-04/requester-dashboard.api.test.ts` | Planned |
+| PERF-01 | Performance smoke | AC-26 | Both dashboard endpoints on seed data | Each responds within 1000 ms | `server/tests/lab-04/dashboard.api.test.ts` | Implemented |
 | UI-01 | UI | AC-01, AC-23 | Actions Taken list, empty state, create form success, busy state | Rows render; empty text shown; button disabled while saving; list refreshes | `client/src/tests/lab-04/ActionsTaken.test.tsx` | Implemented |
 | UI-02 | UI | AC-02, AC-03, AC-23 | Follow-up note appears and is required; field-level errors; invalid assignee error | Messages below fields; request not sent for client-detectable errors | `client/src/tests/lab-04/ActionsTaken.test.tsx` | Implemented |
 | UI-03 | UI | AC-07 | Edit, complete (result required), cancel confirmation | Controls only for `OPEN` actions; correct API calls | `client/src/tests/lab-04/ActionsTaken.test.tsx` | Implemented |
@@ -70,10 +70,10 @@ Test accounts are the seeded local accounts documented in the README (Requester,
 | UI-06 | UI | AC-09 | Resolution Summary field; open-action warning; gate reasons shown after 409 | Messages displayed; entered data kept | `client/src/tests/lab-04/TicketWorkflow.test.tsx` | Implemented |
 | UI-07 | UI | AC-11, AC-23 | `STALE_UPDATE` shows conflict message with Reload | Message and Reload button shown | `client/src/tests/lab-04/TicketWorkflow.test.tsx` | Implemented |
 | UI-08 | UI | AC-22 | Double click on submit/status buttons | API called once | `client/src/tests/lab-04/ActionsTaken.test.tsx`, `client/src/tests/lab-04/TicketWorkflow.test.tsx` | Implemented |
-| UI-09 | UI | AC-14, AC-16 | Staff dashboard renders cards and lists; card click calls drill-down with correct filter | Values shown; correct filter passed | `client/src/tests/lab-04/StaffDashboard.test.tsx` | Planned |
-| UI-10 | UI | AC-15, AC-23 | Staff dashboard loading, empty, forbidden, failure with Retry | Correct state for each | `client/src/tests/lab-04/StaffDashboard.test.tsx` | Planned |
-| UI-11 | UI | AC-13, AC-16 | Requester dashboard renders cards and lists; drill-down to My Tickets filter | Values shown; correct filter passed | `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Planned |
-| UI-12 | UI | AC-15, AC-23 | Requester dashboard loading, empty, failure | Correct state for each | `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Planned |
+| UI-09 | UI | AC-14, AC-16 | Staff dashboard renders cards and lists; card click calls drill-down with correct filter | Values shown; correct filter passed | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
+| UI-10 | UI | AC-15, AC-23 | Staff dashboard loading, empty, forbidden, failure with Retry | Correct state for each | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
+| UI-11 | UI | AC-13, AC-16 | Requester dashboard renders cards and lists; drill-down to My Tickets filter | Values shown; correct filter passed | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
+| UI-12 | UI | AC-15, AC-23 | Requester dashboard loading, empty, failure | Correct state for each | `client/src/tests/lab-04/Dashboards.test.tsx` | Implemented |
 | UI-13 | UI | AC-21 | No Development Requester selector, Change Requester action, or header usage | Absent from the rendered application | `client/src/tests/lab-04/StaffDashboard.test.tsx`, `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Planned |
 | STYLE-01 | UI style | AC-24 | Required classes: action/follow-up badges, metric cards, read-only vs editable fields, required asterisk, error placement, `aria-current` on active nav | Assertions pass | `client/src/tests/lab-04/ActionsTaken.test.tsx`, `client/src/tests/lab-04/StaffDashboard.test.tsx`, `client/src/tests/lab-04/RequesterDashboard.test.tsx` | Implemented |
 | RESP-01 | Responsive | AC-24 | Dashboards and Actions Taken at desktop, tablet, mobile: no horizontal scroll, no clipping, tap targets | `scrollWidth <= clientWidth`; checks pass; screenshots saved | `e2e/lab-04/dashboards.spec.ts`, `e2e/lab-04/actions-taken-flow.spec.ts` | Planned |
@@ -175,6 +175,15 @@ The development database was built with `prisma db push`, so it had no migration
 
 - Migration `20260922000000_add_ticket_version` runs `ALTER TABLE "Ticket" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 0;`. Row counts of every table were identical before and after (existing Tickets receive `version = 0`).
 - Intentional change to existing tests: `PATCH /api/staff/tickets/:id/status` now requires `expectedVersion` (BR-13), so the status-workflow cases in `server/tests/lab-03/staff-ticket-detail.api.test.ts` read the current version first and send it. No expected result of those tests changed. The staff transition matrix additionally allows `RESOLVED -> REOPENED` (BR-11).
+
+### 6.3 Dashboards (Issue: Dashboards)
+
+- Migration `20260923000000_add_dashboard_indexes` creates `Ticket(requesterId, currentStatus)` and `Ticket(currentStatus, updatedAt)`. Row counts of every table were identical before and after; only `_prisma_migrations` gained one row.
+- Dashboard server tests are in one file (`dashboard.api.test.ts`, DASH-01..09 and FILTER-01/02) and dashboard UI tests in one file (`Dashboards.test.tsx`, DUI-01..09); the planned per-role file split was merged. Metric tests compare each value with a direct `prisma` count computed in the test.
+- API-20 (a staff user with no owned Tickets or actions) is not asserted separately yet and UI-13 (no Development Requester selector) belongs to the hardening Issue; both stay `Planned`.
+- Finding fixed on the way: the Requester list endpoint (`GET /api/tickets`) accepted `status` but never applied it to its SQL query. It now filters (single value or comma-separated list), so a card value and the drill-down list count match.
+- Intentional change to existing tests: the default landing page is now the Dashboard (spec 2), so the Lab 2 `CreateTicket.test.tsx` helper opens My Tickets before its flows. No Lab 2 expectation changed.
+- Manual check in the browser on the seed database: the Unassigned card (152) opened the Ticket Queue showing "152 tickets"; the Requester Open card opened My Tickets with the combined status filter.
 
 ## 7. Known Limitations or Deferred Tests
 

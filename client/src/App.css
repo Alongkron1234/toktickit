@@ -26,3 +26,81 @@
 .border-zen-primary {
   border-color: #006B3C !important;
 }
+
+/* Dashboard metric cards (Lab 4) */
+.metric-card:hover { background-color: #EAF6EF !important; }
+.metric-card:focus-visible { outline: 3px solid #0B7A46; outline-offset: 2px; }
+
+/* Dashboard look (Lab 4) — Zen Green tokens only */
+.dash-hero {
+  background: linear-gradient(135deg, #006B3C 0%, #0B7A46 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 14px rgba(0, 107, 60, 0.18);
+}
+.dash-hero h1 { color: #fff !important; }
+.dash-hero .dash-sub { color: rgba(255, 255, 255, 0.82); font-size: 0.9rem; }
+.dash-hero .btn-refresh {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 10px;
+}
+.dash-hero .btn-refresh:hover:not(:disabled) { background: rgba(255, 255, 255, 0.26); color: #fff; }
+.dash-hero .btn-refresh:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+.metric-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-left: 4px solid var(--accent, #0B7A46) !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+button.metric-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(20, 83, 45, 0.12) !important; }
+.metric-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  background: var(--accent-bg, #EAF6EF);
+}
+
+.dash-panel {
+  background: #fff;
+  border: 1px solid #D1E7DA;
+  border-radius: 14px;
+  padding: 18px 18px 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.dash-panel h2 {
+  color: #14532D;
+  font-size: 1rem !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-li { border-top: 1px solid #EEF3F0; }
+.dash-li:first-child { border-top: 0; }
+.dash-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 8px;
+  min-height: 44px;
+  text-decoration: none;
+  transition: background-color 0.1s ease;
+}
+.dash-row:hover { background: #F3FAF6; }
+.dash-row:focus-visible { outline: 3px solid #0B7A46; outline-offset: -2px; }
+.prio-bar { height: 6px; border-radius: 999px; background: #EEF3F0; overflow: hidden; }
+.prio-bar > span { display: block; height: 100%; border-radius: 999px; }
