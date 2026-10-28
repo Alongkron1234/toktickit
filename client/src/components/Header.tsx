@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
     <header className="shadow-sm" style={{ backgroundColor: '#006B3C', color: '#FFFFFF' }}>
       <div className="container-fluid px-3 px-md-5 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         {/* Left Side: Brand Logo & Navigation */}
-        <div className="d-flex align-items-center gap-4">
+        <div className="d-flex align-items-center flex-wrap gap-2 gap-md-4">
           <div className="d-flex align-items-center gap-2 cursor-pointer" onClick={() => onNavigate(homeNav)}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
               <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
           </div>
 
           {user && (
-            <nav className="d-flex gap-2" aria-label="Main navigation">
+            <nav className="d-flex flex-wrap gap-2" aria-label="Main navigation">
               <button
                 onClick={() => onNavigate('dashboard')}
                 aria-current={activeNav === 'dashboard' ? 'page' : undefined}
