@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ActionsTakenSection } from './ActionsTakenSection';
+import { useEscapeKey } from '../utils/useEscapeKey';
 
 export interface AttachmentItem {
   id: number;
@@ -106,6 +107,11 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
   const [removalReason, setRemovalReason] = useState('');
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const closeUploadModal = useCallback(() => setShowUploadModal(false), []);
+  const closeRemoveModal = useCallback(() => setRemovingAttachment(null), []);
+  useEscapeKey(showUploadModal, closeUploadModal);
+  useEscapeKey(removingAttachment !== null, closeRemoveModal);
 
   // Fetch Public Comments
   const fetchComments = useCallback(async () => {
@@ -813,16 +819,17 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
 
       {/* Upload Attachment Modal */}
       {showUploadModal && (
-        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="upload-modal-title" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow" style={{ borderRadius: '12px' }}>
               <div className="modal-header border-bottom">
-                <h5 className="modal-title fw-bold" style={{ color: '#111827' }}>
+                <h5 id="upload-modal-title" className="modal-title fw-bold" style={{ color: '#111827' }}>
                   Upload Attachment
                 </h5>
                 <button
                   type="button"
                   className="btn-close"
+                  aria-label="Close"
                   onClick={() => setShowUploadModal(false)}
                 ></button>
               </div>
@@ -964,14 +971,15 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
 
       {/* Soft Remove Confirmation Modal */}
       {removingAttachment && (
-        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="remove-modal-title" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow" style={{ borderRadius: '12px' }}>
               <div className="modal-header border-bottom">
-                <h5 className="modal-title fw-bold text-danger">Remove Attachment</h5>
+                <h5 id="remove-modal-title" className="modal-title fw-bold text-danger">Remove Attachment</h5>
                 <button
                   type="button"
                   className="btn-close"
+                  aria-label="Close"
                   onClick={() => setRemovingAttachment(null)}
                 ></button>
               </div>
