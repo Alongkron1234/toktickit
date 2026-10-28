@@ -83,3 +83,14 @@ export async function openActionsTab(page: Page) {
   await page.getByRole('button', { name: /Actions Taken \(\d+\)/ }).click();
   await expect(page.getByTestId('actions-taken-section')).toBeVisible();
 }
+
+/** Records an OPEN action on a ticket through the staff API. */
+export async function addAction(ticketId: number, description: string, email = USERS.staff) {
+  const { api, token } = await apiLogin(email);
+  const res = await api.post(`/api/staff/tickets/${ticketId}/actions`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { description },
+  });
+  await api.dispose();
+  return res.status();
+}
