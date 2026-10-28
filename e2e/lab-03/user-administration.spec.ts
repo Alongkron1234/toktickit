@@ -149,7 +149,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
     await page.goto('http://localhost:5173/');
     await fillLoginForm(page, 'john.smith@toktickit.com', 'InitialPassword123!');
 
-    await page.click('text=👥 User Management');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("User Management")');
     await expect(page.locator('h1')).toContainText('Users');
     await captureResponsiveScreenshots(page, 'user-list');
 
@@ -163,7 +163,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
   test('E2E-ADMIN-02: Create, edit, and reset password for a user, with duplicate-email validation', async ({ page }) => {
     await page.goto('http://localhost:5173/');
     await fillLoginForm(page, 'john.smith@toktickit.com', 'InitialPassword123!');
-    await page.click('text=👥 User Management');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("User Management")');
     await expect(page.locator('h1')).toContainText('Users');
 
     // --- Create ---
@@ -213,7 +213,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
   test('E2E-ADMIN-03: Safety guards — self-deactivation and last-Administrator protection', async ({ page }) => {
     await page.goto('http://localhost:5173/');
     await fillLoginForm(page, 'john.smith@toktickit.com', 'InitialPassword123!');
-    await page.click('text=👥 User Management');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("User Management")');
 
     // Self-deactivation: the Active toggle is disabled client-side on your own row.
     await clickRowAction(page, 'john.smith@toktickit.com', 'Edit');
@@ -281,7 +281,7 @@ test.describe('Issue 7: Administrator User Management End-to-End Tests with Scre
       );
 
       await fillLoginForm(page, soleAdminEmail, soleAdminNewPassword);
-      await page.click('text=👥 User Management');
+      await page.click('nav[aria-label="Main navigation"] button:has-text("User Management")');
       await clickRowAction(page, soleAdminEmail, 'Edit');
       await expect(page.locator('#user-form-active')).toBeDisabled(); // editing self
       await page.selectOption('#user-form-role', 'IT_STAFF');

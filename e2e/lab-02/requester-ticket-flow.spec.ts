@@ -23,13 +23,11 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
     // Wait for page to settle
     await page.waitForLoadState('networkidle');
 
-    // Ensure Requester Selection is performed if on selection screen
-    const selectDropdown = page.locator('#requesterSelect');
-    if (await selectDropdown.isVisible().catch(() => false)) {
-      await selectDropdown.selectOption('1');
-      await page.click('button:has-text("Continue")');
-      await page.waitForLoadState('networkidle');
-    }
+    // Lab 4: the Development Requester selector is retired; sign in as Jennifer Anderson instead.
+    await page.fill('input[placeholder="name@toktickit.com"]', 'jennifer.anderson@example.com');
+    await page.fill('input[placeholder="••••••••"]', 'InitialPassword123!');
+    await page.click('button:has-text("Sign In")');
+    await expect(page.getByRole('heading', { name: /Welcome back/ })).toBeVisible();
   });
 
   // Helper function to capture screenshots across 3 required viewports (Desktop, Tablet, Mobile)
@@ -55,7 +53,7 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
 
   test('E2E-01: Full Create Ticket flow and save responsive screenshots', async ({ page }) => {
     // 1. Navigate to Create Ticket
-    await page.click('button:has-text("Create Ticket"), a:has-text("Create Ticket")');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("Create Ticket")');
     await expect(page.locator('h1')).toContainText('Create IT Support Ticket');
 
     // Capture Create Ticket Initial Screen (Desktop, Tablet, Mobile)
@@ -79,27 +77,26 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
     await captureResponsiveScreenshots(page, 'create-ticket', 'success');
 
     // 5. Navigate to My Tickets & verify new ticket is listed
-    await page.click('button:has-text("My Tickets"), a:has-text("My Tickets")');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("My Tickets")');
     await expect(page.locator('body')).toContainText('E2E Testing Ticket Summary Sample');
 
     // Capture My Tickets List Screen (Desktop, Tablet, Mobile)
     await captureResponsiveScreenshots(page, 'my-tickets', 'list');
   });
 
-  test('E2E-02: Requester switching and ownership isolation flow with screenshots', async ({ page }) => {
-    // 1. Verify Jennifer Anderson is active requester
+  test('E2E-02: Requester ownership isolation across accounts with screenshots', async ({ page }) => {
+    // 1. Jennifer Anderson is the signed-in requester
     await expect(page.locator('body')).toContainText('Jennifer Anderson');
 
-    // 2. Click Change Requester
-    await page.click('button:has-text("Change Requester"), button:has-text("Switch")');
-    await expect(page.locator('#requesterSelect')).toBeVisible();
+    // 2. Sign out and sign in as Michael Brown (replaces the retired Change Requester action)
+    await page.click('button:has-text("Logout")');
+    await page.fill('input[placeholder="name@toktickit.com"]', 'michael.brown@example.com');
+    await page.fill('input[placeholder="••••••••"]', 'InitialPassword123!');
+    await page.click('button:has-text("Sign In")');
 
-    // 3. Switch to Michael Brown (ID 2)
-    await page.selectOption('#requesterSelect', '2');
-    await page.click('button:has-text("Continue")');
-
-    // 4. Verify user switched & data reloaded
+    // 3. Verify user switched & data reloaded
     await expect(page.locator('body')).toContainText('Michael Brown');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("My Tickets")');
 
     // Capture My Tickets Screen after switching requester (Desktop, Tablet, Mobile)
     await captureResponsiveScreenshots(page, 'my-tickets', 'switched-user');
@@ -107,6 +104,7 @@ test.describe('Requester Ticket Lifecycle End-to-End Tests with Automatic Screen
 
   test('E2E-03: Attachment upload, soft removal, and blocked download flow with screenshots', async ({ page }) => {
     // 1. Open first ticket in My Tickets
+    await page.click('nav[aria-label="Main navigation"] button:has-text("My Tickets")');
     await expect(page.locator('table tbody tr, .card')).not.toHaveCount(0);
     await page.locator('button:has-text("TKT-"):visible').first().click();
     await expect(page.locator('.card-header').first()).toContainText(/Ticket|Attachments/i);
