@@ -202,6 +202,7 @@ The development database was built with `prisma db push`, so it had no migration
 - Accessibility: the four existing modals now have `role="dialog"`, `aria-modal`, `aria-labelledby`, a labelled close button and close on Esc.
 - `server/generated/` is no longer tracked; `postinstall` runs `prisma generate`.
 - Manual check in the browser as Requester and Administrator: every API call returned 200 and the console showed no errors.
+- Final manual check as IT Staff (Dashboard, Ticket Queue, Ticket Detail): no console errors other than the two expected `401` responses from `GET /api/auth/me` on the login page before sign-in.
 
 ### 6.6 Final regression, end-to-end flows, and screenshots (Issue: E2E and Final Regression)
 
@@ -238,7 +239,7 @@ No test is skipped. Known limitations and deferred checks:
 4. **Error precedence:** if a status request is both stale and an illegal transition, the server answers `ILLEGAL_STATUS_TRANSITION` before `STALE_UPDATE` (both 409), so the Reload button is not shown in that case. This does not contradict the specification.
 5. **Attachment endpoints** still answer 403 (not 404) to a non-owner, because the specification lists the 404 rule only for Tickets and Actions.
 6. **Dialog focus handling:** the four modals have `role="dialog"`, `aria-modal`, a label, and close on Esc, but they do not trap focus or return focus to the trigger as ui-spec section 10 describes.
-7. **Touch targets and keyboard focus:** the 44 px minimum touch target and the visible keyboard focus indicator were not measured or captured; some small outline buttons in the mobile Actions Taken list (Edit, Complete, Cancel) look smaller than 44 px.
-8. **Console errors** were checked by hand for the Requester and Administrator screens (6.5) but are not asserted by the Playwright specs.
+7. **Touch targets:** the 44 px minimum is not met on most controls. Measured in the browser (Staff Dashboard, Ticket Queue, Ticket Detail at 1280 px): header buttons 29 px, queue filters 38 px, "View Details" 31 px, pagination 30 px, detail tabs 40 px; the small outline buttons in the Actions Taken list were not measured. Keyboard focus is visible: every visible control on those three screens changes its focus style (checked by script, Tab order not walked).
+8. **Console errors** were checked by hand for the Requester, Administrator, and IT Staff screens (6.5; the only errors are the expected `401` from `/api/auth/me` before sign-in) but are not asserted by the Playwright specs.
 9. **Local database setting:** the stable results above rely on `DB_POOL_MAX=1` on the local `prisma dev` database; a normal PostgreSQL server does not need it.
 

@@ -291,8 +291,8 @@ Endpoint paths, request and response shapes, statuses, and errors are specified 
 5. [x] Requester and IT Staff dashboards are implemented with backend-calculated metrics, drill-down, and empty/forbidden/failure states.
 6. [x] The `X-Dev-Requester-Id` fallback, Development Requester selector, and `/api/requesters` are removed.
 7. [ ] Every Acceptance Criterion maps to at least one automated test in `tests.md` (done); all suites pass with none skipped (server 139, client 71, Playwright 29 on the feature branch). Still to do: run the same commands on the final `main` branch. E2E-07 is covered at UI level only (`tests.md` section 7).
-8. [ ] Screenshots at desktop, tablet, and mobile sizes exist under `artifacts/lab-04/screenshots/` (done, 57 files); the visual and accessibility checklist is complete except keyboard focus visibility, focus trapping in dialogs, and the 44 px touch target (`ui-spec.md` section 11).
-9. [ ] No console errors, broken links, placeholder text, or unfinished controls remain; README setup, seed, migration, test, and demo instructions are current (README done; console errors were checked by hand only for the Requester and Administrator screens).
+8. [ ] Screenshots at desktop, tablet, and mobile sizes exist under `artifacts/lab-04/screenshots/` (done, 57 files); the visual and accessibility checklist is complete except focus trapping in dialogs and the 44 px touch target (`ui-spec.md` section 11); keyboard focus visibility was verified.
+9. [ ] No console errors, broken links, placeholder text, or unfinished controls remain; README setup, seed, migration, test, and demo instructions are current (README done; console errors were checked by hand for the Requester, Administrator, and IT Staff screens and are clean; the Resolution Summary placeholder wording still mismatches the Requester view).
 10. [ ] Every feature branch was reviewed by a peer, merged into `lab4-staging`, and `lab4-staging` was merged into `main` through one release Pull Request; all GitHub Issues are in Done. (PRs #63 to #69 are reviewed and merged; the final Issue and the release PR are pending.)
 
 ---
