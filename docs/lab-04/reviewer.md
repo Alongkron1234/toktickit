@@ -38,7 +38,7 @@
 | `feature/lab-4-dashboards` (Issue #60) | https://github.com/Alongkron1234/toktickit/pull/66 | (napatsun) ทำออกมาได้ดี รอบคอบครบถ้วนดีครับ ผ่านเลย | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (napatsun) |
 | `fix/lab-4-dashboard-followup` (แก้ต่อจาก Issue #60) | https://github.com/Alongkron1234/toktickit/pull/68 | (napatsun) แก้ปัญหาได้ตรงจุดและครอบคลุมดี โดยเฉพาะการอธิบายเหตุผลการเลือกเลข Ticket (001225-001229) และการเพิ่ม afterAll เพื่อ clean Test Account ที่ช่วยให้ Test Suite มีความเสถียรในระยะยาว | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (napatsun) |
 | `feature/lab-4-hardening` (Issue #61) | https://github.com/Alongkron1234/toktickit/pull/69 | (krittaphato3) แก้ไข security issues ได้ดีมาก มีเทสครบถ้วน / (napatsun) ทำเสร็จเร็วมาก ครบถ้วนถูกต้อง ผ่าน | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (krittaphato3, napatsun) |
-| `feature/lab-4-e2e-and-docs` (Issue #62) | <PR link — ยังไม่ได้เปิด PR> | <รอ review> | <รอ review> | <รอ review> |
+| `feature/lab-4-e2e-and-docs` (Issue #62) | https://github.com/Alongkron1234/toktickit/pull/70 | (krittaphato3) doc ครบถ้วนดีนะครับ และมีรูปใน artifacts ครบถ้วน e2e ก็ทำได้ดีมากครับ ไม่มีข้อติ กล้ามากเก่งมากครับ | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (krittaphato3) |
 | `lab4-staging` -> `main` (Release PR) | <PR link — ยังไม่ได้เปิด PR> | <รอ review> | <รอ review> | <รอ review> |
 
 ---
@@ -77,7 +77,7 @@
 
 ## 5. Evidence Checklist (สำหรับ Answer Part 1)
 
-- [ ] ทุก PR ของผมได้รับ approve จาก peer reviewer และมีลิงก์ถูกต้อง (ยังขาด PR #62 และ release PR)
+- [ ] ทุก PR ของผมได้รับ approve จาก peer reviewer และมีลิงก์ถูกต้อง (ยังขาด release PR)
 - [x] มีหลักฐานว่าผม review และ approve PR ของเพื่อนอย่างน้อยหนึ่งอัน พร้อมคอมเมนต์ที่ให้และคำตอบของเพื่อน (เช่น atiwit/toktickit#65, krittaphato3/TokTickIT#63 และ #64)
 - [ ] Kanban บน GitHub Project มีทุก Issue (#57-#62) อยู่ในสถานะ Done
 - [ ] screenshot commit history บน `main` เห็น feature branch ถูก merge เข้า `lab4-staging` แล้วเข้า `main`
