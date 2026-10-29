@@ -159,25 +159,29 @@ Both are full-width centered cards inside the application shell with a title, on
 
 ## 11. Visual Inspection Checklist
 
-To be completed with the screenshots (viewport sizes: desktop 1280x800, tablet 820x1180, mobile 390x844):
+Screenshots: viewport sizes desktop 1280x800, tablet 820x1180, mobile 390x844 (57 files, see section 12). Every capture is also checked automatically for horizontal overflow (`scrollWidth <= clientWidth`). Visual review was done on every distinct screen at the mobile size, with spot checks at tablet and desktop; the checks that were not verified are listed as open items.
 
-- [ ] Colors and tokens match section 1 on every Lab 4 screen
-- [ ] Editable and read-only fields are clearly distinct
-- [ ] Required markers and validation messages are placed correctly (message below the field)
-- [ ] Button hierarchy is clear (one primary action; destructive style only for destructive actions)
-- [ ] Badges are consistent for status, priority, role, action status, and follow-up
-- [ ] Dashboards show cards, recent lists, quick actions, and empty/failure states correctly
-- [ ] Actions Taken list, create, edit, complete, cancel, and read-only views are correct
-- [ ] Keyboard focus is visible on every interactive element
-- [ ] No clipping, overlap, or unintended horizontal scrolling at any of the three sizes
-- [ ] No console errors, placeholder text, or unfinished controls
+- [x] Colors and tokens look consistent with section 1 on every Lab 4 screen (checked by eye; exact values were not re-measured)
+- [x] Editable and read-only fields are clearly distinct (Performed By and read-only Requester view)
+- [x] Required markers and validation messages are placed correctly (message below the field, red border, `*` on required labels)
+- [x] Button hierarchy is clear (one primary action; destructive style only for Cancel Action)
+- [x] Badges are consistent for status, priority, role, action status, and follow-up
+- [x] Dashboards show cards, recent lists, quick actions, and empty/loading/failure/forbidden states correctly
+- [x] Actions Taken list, create, validation, complete, cancel confirmation, read-only, and load-failure views are correct
+- [x] Keyboard focus is visible on every interactive element (checked in the browser on the Staff Dashboard, Ticket Queue, and Ticket Detail: every visible button, link, input, and select changes its outline, shadow, border, or background when focused; Tab order was not walked through element by element, and it is not captured in screenshots)
+- [x] No clipping, overlap, or unintended horizontal scrolling at any of the three sizes (automatic check on all 57 files plus visual review)
+- [x] No console errors on the screens checked: Requester and Administrator (earlier) and, in the final check, the IT Staff Dashboard, Ticket Queue, and Ticket Detail. The only errors are two `401` responses from `GET /api/auth/me` on the login page before sign-in, which is the expected session check (it runs twice in React development mode)
+- [ ] No placeholder text or unfinished controls: the Resolution Summary placeholder says "visible to requester" while the Requester view does not show it (see `tests.md` section 7)
+
+Open items (also in `tests.md` section 7): modals close with Esc but do not trap or restore focus (confirmed in the code: only `useEscapeKey` is used, no focus handling); the 44 px touch target is not met on most controls (measured on the Staff Dashboard, Ticket Queue, and Ticket Detail at a 1280 px viewport: header navigation buttons are 29 px, queue filters 38 px, "View Details" 31 px, pagination 30 px, detail tabs 40 px).
 
 ## 12. Screenshot Paths
 
-Screenshots are stored under `artifacts/lab-04/screenshots/`:
+Screenshots are stored under `artifacts/lab-04/screenshots/` and are produced by `e2e/lab-04/screenshots.spec.ts`. Each state exists at desktop, tablet, and mobile:
 
-- `staff-dashboard/` (desktop, tablet, mobile; normal, empty, failure)
-- `requester-dashboard/` (desktop, tablet, mobile; normal, empty, failure)
-- `actions-taken/` (list, create validation, edit, complete, cancel, read-only Requester view, mobile)
+- `requester-dashboard/`: `requester-dashboard`, `-empty`, `-loading`, `-failure`
+- `staff-dashboard/`: `staff-dashboard`, `-admin`, `-empty`, `-loading`, `-failure`, `-forbidden`
+- `actions-taken/`: `actions-list`, `actions-create-form`, `actions-create-validation`, `actions-complete-form`, `actions-cancel-confirm`, `actions-requester-read-only`, `actions-load-failure`
+- `ticket-workflow/`: `resolution-gate-blocked`, `stale-update-conflict`
 
-File names follow `<screen>-<state>-<viewport>.png`, for example `staff-dashboard-normal-desktop.png`.
+File names follow `<screen>[-<state>]-<viewport>.png` with viewport `desktop`, `tablet`, or `mobile`, for example `staff-dashboard-empty-mobile.png`. The "empty" Staff dashboard has empty personal sections; the team-wide cards keep their seed values by design.

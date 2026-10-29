@@ -35,6 +35,9 @@ const SEEDED_EMAILS = new Set([
   'lisa.martinez@toktickit.com',
   'emily.davis@toktickit.com',
   'john.smith@toktickit.com',
+  // Added in Lab 4: seeded requester without tickets, and the zero-state staff account used by the dashboard E2E spec.
+  'emma.wilson@example.com',
+  'e2e.empty.staff@toktickit.com',
 ]);
 
 async function main() {

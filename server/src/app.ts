@@ -16,8 +16,10 @@ import { PrismaClient, Priority, TicketStatus, Role, ActionStatus } from '../gen
 import { getAllowedTransitions, evaluateResolutionGate, parseStatusList } from './workflow';
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg({ connectionString });
+// Optional cap on connections per pool. The local `prisma dev` database can fail when queries overlap on several connections, so set DB_POOL_MAX=1 there.
+const poolMax = Number(process.env.DB_POOL_MAX) || undefined;
+const pool = new Pool({ connectionString, max: poolMax });
+const adapter = new PrismaPg({ connectionString, max: poolMax });
 export const prisma = new PrismaClient({ adapter });
 
 import {

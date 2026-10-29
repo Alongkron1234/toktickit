@@ -284,16 +284,16 @@ Endpoint paths, request and response shapes, statuses, and errors are specified 
 
 ## 11. Definition of Done (DoD)
 
-1. `specification.md`, `api-spec.md`, `ui-spec.md`, `tests.md`, `reviewer.md`, and `ai-use.md` exist in `docs/lab-04/` and are complete and mutually consistent.
-2. The specification existed in `lab4-staging` before the implementation PRs were merged.
-3. The Prisma migration is additive, tested on a populated database without data loss, with a documented and tested rollback; the seed is idempotent.
-4. Actions Taken (API and UI), the transition matrix, resolution gate, and stale-update protection are implemented and enforced by the backend.
-5. Requester and IT Staff dashboards are implemented with backend-calculated metrics, drill-down, and empty/forbidden/failure states.
-6. The `X-Dev-Requester-Id` fallback, Development Requester selector, and `/api/requesters` are removed.
-7. Every Acceptance Criterion maps to at least one automated test in `tests.md`; all unit, API, UI, UI-style, responsive, authorization, workflow, regression, performance-smoke, and E2E tests pass from documented commands on the final `main` branch, with none skipped, disabled, or commented out.
-8. Screenshots at desktop, tablet, and mobile sizes exist under `artifacts/lab-04/screenshots/` and the visual and accessibility checklist is complete.
-9. No console errors, broken links, placeholder text, or unfinished controls remain; README setup, seed, migration, test, and demo instructions are current.
-10. Every feature branch was reviewed by a peer, merged into `lab4-staging`, and `lab4-staging` was merged into `main` through one release Pull Request; all GitHub Issues are in Done.
+1. [ ] `specification.md`, `api-spec.md`, `ui-spec.md`, `tests.md`, `reviewer.md`, and `ai-use.md` exist in `docs/lab-04/` and are complete and mutually consistent. (All exist; the `reviewer.md` rows for the last Issue and the release Pull Request are still to be filled after review.)
+2. [x] The specification existed in `lab4-staging` before the implementation PRs were merged (PR #63 was merged before PR #64 to #69).
+3. [x] The Prisma migration is additive, tested on a populated database without data loss, with a documented and tested rollback; the seed is idempotent (`tests.md` 6.1, 6.4).
+4. [x] Actions Taken (API and UI), the transition matrix, resolution gate, and stale-update protection are implemented and enforced by the backend.
+5. [x] Requester and IT Staff dashboards are implemented with backend-calculated metrics, drill-down, and empty/forbidden/failure states.
+6. [x] The `X-Dev-Requester-Id` fallback, Development Requester selector, and `/api/requesters` are removed.
+7. [ ] Every Acceptance Criterion maps to at least one automated test in `tests.md` (done); all suites pass with none skipped (server 139, client 71, Playwright 29 on the feature branch). Still to do: run the same commands on the final `main` branch. E2E-07 is covered at UI level only (`tests.md` section 7).
+8. [ ] Screenshots at desktop, tablet, and mobile sizes exist under `artifacts/lab-04/screenshots/` (done, 57 files); the visual and accessibility checklist is complete except focus trapping in dialogs and the 44 px touch target (`ui-spec.md` section 11); keyboard focus visibility was verified.
+9. [ ] No console errors, broken links, placeholder text, or unfinished controls remain; README setup, seed, migration, test, and demo instructions are current (README done; console errors were checked by hand for the Requester, Administrator, and IT Staff screens and are clean; the Resolution Summary placeholder wording still mismatches the Requester view).
+10. [ ] Every feature branch was reviewed by a peer, merged into `lab4-staging`, and `lab4-staging` was merged into `main` through one release Pull Request; all GitHub Issues are in Done. (PRs #63 to #69 are reviewed and merged; the final Issue and the release PR are pending.)
 
 ---
 
@@ -309,3 +309,6 @@ Endpoint paths, request and response shapes, statuses, and errors are specified 
 8. The Priority enum values are `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`; labels follow the existing badge helper.
 9. The Lab 3 migration gap (section 8.5) is resolved as part of the Actions Taken Issue, before the Lab 4 migration is created.
 10. Removing the header fallback requires updating Lab 2 and Lab 3 tests that relied on it; their intent is unchanged because Lab 3 already requires authenticated identity.
+11. **(Decision)** `requireAuth` answers `401 INVALID_TOKEN` only when the token is invalid or expired; a database error returns `500 INTERNAL_ERROR`, so a temporary database problem no longer logs the user out. An optional `DB_POOL_MAX` limits the connection pool (needed for the local `prisma dev` database).
+12. **(Decision)** The Ticket Queue and My Tickets screens apply only the newest list response, so an older, slower search cannot overwrite a newer result.
+13. **(Decision)** Known limitations accepted for this sprint, with reasons in `tests.md` section 7: the Resolution Summary hint wording, `ILLEGAL_STATUS_TRANSITION` answered before `STALE_UPDATE`, attachment endpoints answering 403 to non-owners, and no focus trap in dialogs.
