@@ -171,7 +171,6 @@ Screenshots: viewport sizes desktop 1280x800, tablet 820x1180, mobile 390x844 (5
 - [x] Keyboard focus is visible on every interactive element (checked in the browser on the Staff Dashboard, Ticket Queue, and Ticket Detail: every visible button, link, input, and select changes its outline, shadow, border, or background when focused; Tab order was not walked through element by element, and it is not captured in screenshots)
 - [x] No clipping, overlap, or unintended horizontal scrolling at any of the three sizes (automatic check on all 57 files plus visual review)
 - [x] No console errors on the screens checked: Requester and Administrator (earlier) and, in the final check, the IT Staff Dashboard, Ticket Queue, and Ticket Detail. The only errors are two `401` responses from `GET /api/auth/me` on the login page before sign-in, which is the expected session check (it runs twice in React development mode)
-- [ ] No placeholder text or unfinished controls: the Resolution Summary placeholder says "visible to requester" while the Requester view does not show it (see `tests.md` section 7)
 
 Open items (also in `tests.md` section 7): modals close with Esc but do not trap or restore focus (confirmed in the code: only `useEscapeKey` is used, no focus handling); the 44 px touch target is not met on most controls (measured on the Staff Dashboard, Ticket Queue, and Ticket Detail at a 1280 px viewport: header navigation buttons are 29 px, queue filters 38 px, "View Details" 31 px, pagination 30 px, detail tabs 40 px).
 
