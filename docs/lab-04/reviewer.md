@@ -39,7 +39,7 @@
 | `fix/lab-4-dashboard-followup` (แก้ต่อจาก Issue #60) | https://github.com/Alongkron1234/toktickit/pull/68 | (napatsun) แก้ปัญหาได้ตรงจุดและครอบคลุมดี โดยเฉพาะการอธิบายเหตุผลการเลือกเลข Ticket (001225-001229) และการเพิ่ม afterAll เพื่อ clean Test Account ที่ช่วยให้ Test Suite มีความเสถียรในระยะยาว | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (napatsun) |
 | `feature/lab-4-hardening` (Issue #61) | https://github.com/Alongkron1234/toktickit/pull/69 | (krittaphato3) แก้ไข security issues ได้ดีมาก มีเทสครบถ้วน / (napatsun) ทำเสร็จเร็วมาก ครบถ้วนถูกต้อง ผ่าน | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (krittaphato3, napatsun) |
 | `feature/lab-4-e2e-and-docs` (Issue #62) | https://github.com/Alongkron1234/toktickit/pull/70 | (krittaphato3) doc ครบถ้วนดีนะครับ และมีรูปใน artifacts ครบถ้วน e2e ก็ทำได้ดีมากครับ ไม่มีข้อติ กล้ามากเก่งมากครับ | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (krittaphato3) |
-| `lab4-staging` -> `main` (Release PR) | <PR link — ยังไม่ได้เปิด PR> | <รอ review> | <รอ review> | <รอ review> |
+| `lab4-staging` -> `main` (Release PR) | https://github.com/Alongkron1234/toktickit/pull/71 | (napatsun) Approve ครับ เสร็จแล้วทำ report ต่อได้เลย | ขอบคุณครับ ไม่มีจุดที่ต้องแก้ไข | Approved (napatsun) |
 
 ---
 
@@ -64,20 +64,20 @@
 
 | PR Title / Feature Branch | Peer PR Link | My Review Comment | Peer Response / Action | Approval Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `feature/l4-1-contract` | https://github.com/krittaphato3/TokTickIT/pull/61 | ทำออกมาได้ดีมากครับ ผ่าน | ไม่มีคำตอบ | Approved |
-| `feature/l4-2-actions-taken-api` | https://github.com/krittaphato3/TokTickIT/pull/62 | เห็นด้วยกับคุณซัน (napatsun) ครับ มีการทำมาอย่างดีทั้ง seed การวาง structure ต่างๆ | ไม่มีคำตอบ | Approved |
+| `feature/l4-1-contract` | https://github.com/krittaphato3/TokTickIT/pull/61 | ทำออกมาได้ดีมากครับ ผ่าน | ตรวจสอบความเรียบร้อย | Approved |
+| `feature/l4-2-actions-taken-api` | https://github.com/krittaphato3/TokTickIT/pull/62 | เห็นด้วยกับคุณซัน (napatsun) ครับ มีการทำมาอย่างดีทั้ง seed การวาง structure ต่างๆ | ตรวจสอบความเรียบร้อย | Approved |
 | `feature/l4-3-ticket-workflow` | https://github.com/krittaphato3/TokTickIT/pull/63 | ภาพรวมทำมาดีมาก แต่ขอสอบถามจุด UX ใน `reloadAfterConflict()` ที่เรียก `setResolveOpen(false)` ทำให้พอกด Reload แล้ว Modal ปิดลง ถึงข้อความ draft จะยังอยู่ แต่ผู้ใช้ต้องไปเลือก RESOLVED จาก dropdown ใหม่อีกครั้ง ตั้งใจปิดเพื่อให้ผู้ใช้ดูข้อมูลตั๋วล่าสุดก่อน หรือควรให้ Modal เปิดค้างไว้แล้ว refresh version ในพื้นหลังดีกว่า | ตอบว่าตั้งใจปิด Modal หลัง Reload เพื่อให้ staff เห็นข้อมูลล่าสุดของตั๋วก่อนตัดสินใจ Resolve อีกครั้งตาม safety flow โดย summary draft ยังเก็บไว้ใน state ไม่สูญหาย | Approved |
 | `feature/l4-4-actions-taken-ui` | https://github.com/krittaphato3/TokTickIT/pull/64 | (inline) ใน `ActionsTaken.tsx` สร้าง action แล้ววางบนสุดตลอด (`[created, ...prev]`) แต่ spec ให้เรียงตาม `actionAt DESC` แล้วตาม `id DESC` ถ้าย้อนวันที่หรือแก้วันที่ตอน edit แถวจะอยู่ผิดที่ ควร sort ใหม่หลัง create/edit | เพิ่มฟังก์ชัน `sortActions()` เรียงตาม `actionAt DESC` และ `id DESC` (BR-05) ใช้ทั้งตอน initial load, create, update และ conflict reload พร้อมเทส UI-03d ครอบคลุมเคสบันทึกย้อนหลัง ผมตอบกลับว่า "ทำดีมาก" | Approved |
-| `feature/lab4-docs-prepare` | https://github.com/atiwit/toktickit/pull/64 | ไฟล์ document spec ต่างๆ เขียนเรียบร้อยดีครับ | ขอบคุณ ไม่มีการแก้ไข | Approved |
-| `feature/lab4-actions-foundation` | https://github.com/atiwit/toktickit/pull/65 | (1) PATCH ไม่ validate `attachmentNotes` ส่งเกิน 1000 ตัวหรือไม่ใช่ string แล้วได้ 500 แทน 400 ให้แยก validator ใช้ร่วมกับ POST (2) ไม่ใช้ transaction `actionTaken.create/update` กับ `ticket.update({ updatedAt })` แยกกัน ถ้าตัวที่สองล้ม action ถูกบันทึกแล้วแต่ client ได้ 500 กดซ้ำจะเกิดรายการซ้ำ ให้ครอบด้วย `prisma.$transaction` | แยก shared validator `validateActionTakenPayload` ใช้ทั้ง POST และ PATCH (ได้ 400 แทน 500), ครอบ create/update ร่วมกับ ticket update ด้วย `prisma.$transaction`, เพิ่มเทส API-ACT-20 ถึง 24 (commit d23e205, 5843740) ผมตรวจซ้ำแล้วเห็นว่าแก้ตรงตามที่ comment | Approved หลังแก้ |
-| `feature/lab4-07-final-hardening-regression` | https://github.com/napatsun/TokTickIT/pull/63 | ตรวจดูเรียบร้อยแล้ว โดยรวมโอเค ครบทั้ง UI, test, screenshot 3 ขนาด ดีมาก | ไม่มีคำตอบ | Approved |
-| `fix/lab4-dashboard-gap-fix` | https://github.com/napatsun/TokTickIT/pull/65 | โดยรวมสำหรับ Issue นี้เรียบร้อยครบถ้วนดี ผ่าน | ไม่มีคำตอบ | Approved |
+| `feature/lab4-docs-prepare` | https://github.com/atiwit/toktickit/pull/64 | ไฟล์ document spec ต่างๆ เขียนเรียบร้อยดีครับ | ตรวจสอบความเรียบร้อย | Approved |
+| `feature/lab4-actions-foundation` | https://github.com/atiwit/toktickit/pull/65 | (1) PATCH ไม่ validate `attachmentNotes` ส่งเกิน 1000 ตัวหรือไม่ใช่ string แล้วได้ 500 แทน 400 ให้แยก validator ใช้ร่วมกับ POST (2) ไม่ใช้ transaction `actionTaken.create/update` กับ `ticket.update({ updatedAt })` แยกกัน ถ้าตัวที่สองล้ม action ถูกบันทึกแล้วแต่ client ได้ 500 กดซ้ำจะเกิดรายการซ้ำ ให้ครอบด้วย `prisma.$transaction` | แยก shared validator `validateActionTakenPayload` ใช้ทั้ง POST และ PATCH (ได้ 400 แทน 500), ครอบ create/update ร่วมกับ ticket update ด้วย `prisma.$transaction`, เพิ่มเทส API-ACT-20 ถึง 24 (commit d23e205, 5843740) ผมตรวจซ้ำแล้วเห็นว่าแก้ตรงตามที่ comment | Approved |
+| `feature/lab4-07-final-hardening-regression` | https://github.com/napatsun/TokTickIT/pull/63 | ตรวจดูเรียบร้อยแล้ว โดยรวมโอเค ครบทั้ง UI, test, screenshot 3 ขนาด ดีมาก | ตรวจสอบความเรียบร้อย | Approved |
+| `fix/lab4-dashboard-gap-fix` | https://github.com/napatsun/TokTickIT/pull/65 | โดยรวมสำหรับ Issue นี้เรียบร้อยครบถ้วนดี ผ่าน | ตรวจสอบความเรียบร้อย | Approved |
 
 ---
 
 ## 5. Evidence Checklist (สำหรับ Answer Part 1)
 
-- [ ] ทุก PR ของผมได้รับ approve จาก peer reviewer และมีลิงก์ถูกต้อง (ยังขาด release PR)
+- [x] ทุก PR ของผมได้รับ approve จาก peer reviewer และมีลิงก์ถูกต้อง (#63 ถึง #70 และ release PR #71)
 - [x] มีหลักฐานว่าผม review และ approve PR ของเพื่อนอย่างน้อยหนึ่งอัน พร้อมคอมเมนต์ที่ให้และคำตอบของเพื่อน (เช่น atiwit/toktickit#65, krittaphato3/TokTickIT#63 และ #64)
-- [ ] Kanban บน GitHub Project มีทุก Issue (#57-#62) อยู่ในสถานะ Done
-- [ ] screenshot commit history บน `main` เห็น feature branch ถูก merge เข้า `lab4-staging` แล้วเข้า `main`
+- [x] Kanban บน GitHub Project มีทุก Issue (#57-#62) อยู่ในสถานะ Done
+- [x] screenshot commit history บน `main` เห็น feature branch ถูก merge เข้า `lab4-staging` แล้วเข้า `main`
