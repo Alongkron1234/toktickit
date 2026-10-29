@@ -1,29 +1,32 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app';
+import { loginAs, bearer, TestUser } from '../helpers/auth';
+
+let jennifer: TestUser;
+let michael: TestUser;
+
+beforeAll(async () => {
+  jennifer = await loginAs('jennifer.anderson@example.com');
+  michael = await loginAs('michael.brown@example.com');
+});
 
 describe('My Tickets Query API & Data Isolation (Lab 2 - Issue 6)', () => {
-  it('API-06: GET /api/tickets should return HTTP 403 when X-Dev-Requester-Id header is missing or invalid', async () => {
-    // 1. Missing header
-    const resNoHeader = await request(app).get('/api/tickets');
-    expect(resNoHeader.status).toBe(403);
-    expect(resNoHeader.body).toHaveProperty('success', false);
-    expect(resNoHeader.body.error.message).toMatch(/X-Dev-Requester-Id header is required/i);
+  it('API-06: GET /api/tickets should return HTTP 401 when the token is missing or invalid', async () => {
+    const resNoToken = await request(app).get('/api/tickets');
+    expect(resNoToken.status).toBe(401);
+    expect(resNoToken.body).toHaveProperty('success', false);
 
-    // 2. Inactive or invalid requester ID
-    const resInvalidHeader = await request(app)
-      .get('/api/tickets')
-      .set('X-Dev-Requester-Id', '99999');
-    expect(resInvalidHeader.status).toBe(403);
-    expect(resInvalidHeader.body).toHaveProperty('success', false);
-    expect(resInvalidHeader.body.error.message).toMatch(/invalid or inactive/i);
+    const resInvalidToken = await request(app).get('/api/tickets').set('Authorization', 'Bearer not-a-real-token');
+    expect(resInvalidToken.status).toBe(401);
+    expect(resInvalidToken.body).toHaveProperty('success', false);
   });
 
   it('API-04: GET /api/tickets should return HTTP 200 with tickets belonging ONLY to the requested requester', async () => {
     // Query tickets for Jennifer Anderson (ID: 1)
     const response = await request(app)
       .get('/api/tickets')
-      .set('X-Dev-Requester-Id', '1');
+      .set(bearer(jennifer.token));
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('success', true);
@@ -41,7 +44,7 @@ describe('My Tickets Query API & Data Isolation (Lab 2 - Issue 6)', () => {
     // 1. Case-Insensitive Search term filter (testing uppercase search term 'BATTERY')
     const searchRes = await request(app)
       .get('/api/tickets?search=BATTERY')
-      .set('X-Dev-Requester-Id', '1');
+      .set(bearer(jennifer.token));
 
     expect(searchRes.status).toBe(200);
     expect(searchRes.body.success).toBe(true);
@@ -55,7 +58,7 @@ describe('My Tickets Query API & Data Isolation (Lab 2 - Issue 6)', () => {
     // 2. Category and Priority filter
     const filterRes = await request(app)
       .get('/api/tickets?categoryId=2&requestedPriority=HIGH')
-      .set('X-Dev-Requester-Id', '1');
+      .set(bearer(jennifer.token));
 
     expect(filterRes.status).toBe(200);
     expect(filterRes.body.success).toBe(true);
@@ -67,7 +70,7 @@ describe('My Tickets Query API & Data Isolation (Lab 2 - Issue 6)', () => {
     // 3. Pagination structure check
     const pageRes = await request(app)
       .get('/api/tickets?page=1&limit=2')
-      .set('X-Dev-Requester-Id', '1');
+      .set(bearer(jennifer.token));
 
     expect(pageRes.status).toBe(200);
     expect(pageRes.body.pagination).toMatchObject({

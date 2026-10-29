@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRequester } from '../context/RequesterContext';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate, getPaginationPages } from '../utils/badges';
 
 export interface TicketItem {
@@ -36,6 +36,7 @@ export interface CategoryOption {
 export interface MyTicketsScreenProps {
   onSelectTicket?: (ticketId: number) => void;
   onNavigateToCreate?: () => void;
+  initialStatus?: string; // single status or comma-separated list (dashboard drill-down)
 }
 
 // Shared th style for table header
@@ -49,14 +50,15 @@ const thStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
-export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket, onNavigateToCreate }) => {
-  const { currentRequester } = useRequester();
+export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket, onNavigateToCreate, initialStatus }) => {
+  // Identity comes from the signed-in user's token (Requester screens no longer use a dev header).
+  const { user: currentRequester, token } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedReqPriority, setSelectedReqPriority] = useState('');
   const [selectedItPriority, setSelectedItPriority] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus ?? '');
   const [sortField, setSortField] = useState<'createdAt' | 'ticketNumber'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
@@ -82,7 +84,12 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
     return () => { isMounted = false; };
   }, []);
 
+  // Only the most recent request may update the screen, so a slow older response cannot overwrite a newer one.
+  const latestRequest = useRef(0);
+
   const fetchTickets = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     if (!currentRequester) {
       setLoading(false);
       return;
@@ -102,9 +109,10 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
 
     try {
       const res = await fetch(`/api/tickets?${q.toString()}`, {
-        headers: { 'X-Dev-Requester-Id': currentRequester.id.toString() },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
+      if (isStale()) return;
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to fetch tickets.');
 
       let data: TicketItem[] = result.data || [];
@@ -113,11 +121,12 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
       setTickets(data);
       if (result.pagination) setPagination(result.pagination);
     } catch (err: any) {
+      if (isStale()) return;
       setError(err.message || 'Unable to load tickets. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  }, [currentRequester, searchTerm, selectedCategory, selectedReqPriority, selectedItPriority, selectedStatus, sortField, sortOrder, page, limit]);
+  }, [currentRequester, token, searchTerm, selectedCategory, selectedReqPriority, selectedItPriority, selectedStatus, sortField, sortOrder, page, limit]);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
 
@@ -251,9 +260,16 @@ export const MyTicketsScreen: React.FC<MyTicketsScreenProps> = ({ onSelectTicket
               <select id="ticket-status-select" className="form-select" value={selectedStatus}
                 onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }} style={{ ...selectStyle, fontSize: '0.82rem', height: '38px', width: '100%' }}>
                 <option value="">All Statuses</option>
+                {selectedStatus.includes(',') && (
+                  <option value={selectedStatus}>
+                    {selectedStatus.split(',').map((x) => x.charAt(0) + x.slice(1).toLowerCase().replace(/_/g, ' ')).join(' + ')}
+                  </option>
+                )}
                 <option value="NEW">New</option>
                 <option value="OPEN">Open</option>
                 <option value="IN_PROGRESS">In Progress</option>
+                <option value="WAITING_FOR_REQUESTER">Waiting for Requester</option>
+                <option value="REOPENED">Reopened</option>
                 <option value="RESOLVED">Resolved</option>
                 <option value="CLOSED">Closed</option>
               </select>

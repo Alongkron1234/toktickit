@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRoleBadge } from '../utils/badges';
+import { Icon } from './Icon';
 
-type NavKey = 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
+type NavKey = 'dashboard' | 'my-tickets' | 'create-ticket' | 'staff-queue' | 'user-management';
 
 interface HeaderProps {
   activeNav: NavKey;
@@ -12,9 +13,9 @@ interface HeaderProps {
 // The logo/home link must land on a destination valid for the signed-in role —
 // 'my-tickets' is Requester-only and previously blanked the page for IT Staff/Admin.
 const HOME_NAV_BY_ROLE: Record<string, NavKey> = {
-  REQUESTER: 'my-tickets',
-  IT_STAFF: 'staff-queue',
-  ADMINISTRATOR: 'staff-queue',
+  REQUESTER: 'dashboard',
+  IT_STAFF: 'dashboard',
+  ADMINISTRATOR: 'dashboard',
 };
 
 export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
@@ -25,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
     <header className="shadow-sm" style={{ backgroundColor: '#006B3C', color: '#FFFFFF' }}>
       <div className="container-fluid px-3 px-md-5 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         {/* Left Side: Brand Logo & Navigation */}
-        <div className="d-flex align-items-center gap-4">
+        <div className="d-flex align-items-center flex-wrap gap-2 gap-md-4">
           <div className="d-flex align-items-center gap-2 cursor-pointer" onClick={() => onNavigate(homeNav)}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
               <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
@@ -35,7 +36,20 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
           </div>
 
           {user && (
-            <nav className="d-flex gap-2">
+            <nav className="d-flex flex-wrap gap-2" aria-label="Main navigation">
+              <button
+                onClick={() => onNavigate('dashboard')}
+                aria-current={activeNav === 'dashboard' ? 'page' : undefined}
+                className={`btn btn-sm px-3 py-1 fw-semibold border-0 ${
+                  activeNav === 'dashboard' ? 'text-white' : 'text-white-50'
+                }`}
+                style={{
+                  backgroundColor: activeNav === 'dashboard' ? '#0B7A46' : 'transparent',
+                  borderRadius: '6px',
+                }}
+              >
+                <Icon name="home" size={16} /> Dashboard
+              </button>
               {/* Requester Navigation */}
               {user.role === 'REQUESTER' && (
                 <>
@@ -49,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
                       borderRadius: '6px',
                     }}
                   >
-                    📄 My Tickets
+                    <Icon name="fileText" size={16} /> My Tickets
                   </button>
                   <button
                     onClick={() => onNavigate('create-ticket')}
@@ -61,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
                       borderRadius: '6px',
                     }}
                   >
-                    ➕ Create Ticket
+                    <Icon name="plus" size={16} /> Create Ticket
                   </button>
                 </>
               )}
@@ -78,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
                     borderRadius: '6px',
                   }}
                 >
-                  📋 Ticket Queue
+                  <Icon name="list" size={16} /> Ticket Queue
                 </button>
               )}
 
@@ -94,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
                     borderRadius: '6px',
                   }}
                 >
-                  👥 User Management
+                  <Icon name="users" size={16} /> User Management
                 </button>
               )}
             </nav>
@@ -132,7 +146,7 @@ export const Header: React.FC<HeaderProps> = ({ activeNav, onNavigate }) => {
               style={{ borderRadius: '6px', fontSize: '0.8rem' }}
               title="Sign Out"
             >
-              🚪 Logout
+              <Icon name="logout" size={16} /> Logout
             </button>
           </div>
         )}

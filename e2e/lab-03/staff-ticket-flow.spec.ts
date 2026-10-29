@@ -57,8 +57,13 @@ test.describe('Issue 7: IT Staff Ticket Queue & Detail Workflow End-to-End Tests
     // (claim -> priority -> status -> comments -> notes) has a deterministic
     // starting point, independent of whatever manual/other test data exists.
     const api = await playwrightRequest.newContext({ baseURL: 'http://localhost:5001' });
+    // Lab 4: Requester endpoints identify the caller by token only, so log in as the Requester first.
+    const login = await api.post('/api/auth/login', {
+      data: { email: 'jennifer.anderson@example.com', password: 'InitialPassword123!' },
+    });
+    const requesterToken = (await login.json()).data.token as string;
     const created = await api.post('/api/tickets', {
-      headers: { 'X-Dev-Requester-Id': '1' },
+      headers: { Authorization: `Bearer ${requesterToken}` },
       data: {
         summary: 'E2E staff workflow fixture ticket',
         description: 'Created for the Lab 3 staff-ticket-flow E2E spec.',
@@ -74,6 +79,8 @@ test.describe('Issue 7: IT Staff Ticket Queue & Detail Workflow End-to-End Tests
   test('E2E-STAFF-01: Ticket Queue search, filter, and pagination with screenshots', async ({ page }) => {
     await page.goto('http://localhost:5173/');
     await fillLoginForm(page, 'alex.thompson@toktickit.com', 'InitialPassword123!');
+    // Lab 4: the default landing page is the Dashboard, so open the Ticket Queue first.
+    await page.click('nav[aria-label="Main navigation"] button:has-text("Ticket Queue")');
 
     await expect(page.locator('body')).toContainText('IT Staff Ticket Queue');
     await captureResponsiveScreenshots(page, queueDir, 'default-view');
@@ -94,6 +101,7 @@ test.describe('Issue 7: IT Staff Ticket Queue & Detail Workflow End-to-End Tests
   test('E2E-STAFF-02: Claim, IT Priority, status transition, Public Comments & Internal Notes with screenshots', async ({ page }) => {
     await page.goto('http://localhost:5173/');
     await fillLoginForm(page, 'alex.thompson@toktickit.com', 'InitialPassword123!');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("Ticket Queue")');
 
     await page.fill('input[placeholder="Search by ticket number or summary..."]', fixtureTicketNumber);
     await page.waitForTimeout(500);
@@ -135,6 +143,7 @@ test.describe('Issue 7: IT Staff Ticket Queue & Detail Workflow End-to-End Tests
   test('E2E-STAFF-03: Requester sees the Public Comment but never the Internal Note', async ({ page }) => {
     await page.goto('http://localhost:5173/');
     await fillLoginForm(page, 'jennifer.anderson@example.com', 'InitialPassword123!');
+    await page.click('nav[aria-label="Main navigation"] button:has-text("My Tickets")');
 
     // Mobile card and desktop table both render a same-text ticket-number button
     // in the DOM (only CSS toggles which is visible) — :visible disambiguates.

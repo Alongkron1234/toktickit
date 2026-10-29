@@ -87,37 +87,6 @@ export const requireAuth = async (
     token = req.cookies.session_token;
   }
 
-  // 3. Backward Compatibility Fallback: X-Dev-Requester-Id Header
-  const requesterIdHeader = req.header('X-Dev-Requester-Id');
-  if (!token && requesterIdHeader) {
-    const requesterId = parseInt(requesterIdHeader, 10);
-    if (!isNaN(requesterId)) {
-      try {
-        const dbUser = await prisma.user.findUnique({ where: { id: requesterId } });
-        if (dbUser && dbUser.isActive) {
-          req.user = {
-            id: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email,
-            role: dbUser.role,
-            isActive: dbUser.isActive,
-            requiresPasswordChange: dbUser.requiresPasswordChange,
-          };
-          req.currentRequester = {
-            id: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email,
-            isActive: dbUser.isActive,
-          };
-          next();
-          return;
-        }
-      } catch (err) {
-        // Fallback check failed
-      }
-    }
-  }
-
   if (!token) {
     res.status(401).json({
       success: false,
@@ -176,11 +145,23 @@ export const requireAuth = async (
 
     next();
   } catch (error) {
-    res.status(401).json({
+    // Only a bad/expired token is an authentication failure; a database error must not log the user out.
+    if (error instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_TOKEN',
+          message: 'Invalid or expired authentication session.',
+        },
+      });
+      return;
+    }
+    console.error('Authentication check failed:', error);
+    res.status(500).json({
       success: false,
       error: {
-        code: 'INVALID_TOKEN',
-        message: 'Invalid or expired authentication session.',
+        code: 'INTERNAL_ERROR',
+        message: 'Something went wrong. Please try again.',
       },
     });
   }

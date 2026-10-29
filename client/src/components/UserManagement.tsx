@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRoleBadge } from '../utils/badges';
+import { useEscapeKey } from '../utils/useEscapeKey';
 
 export interface AdminUser {
   id: number;
@@ -111,7 +112,8 @@ export const UserManagement: React.FC = () => {
     setModal({ type: 'reset', user: u });
   };
 
-  const closeModal = () => setModal(null);
+  const closeModal = useCallback(() => setModal(null), []);
+  useEscapeKey(modal !== null, closeModal);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,12 +316,12 @@ export const UserManagement: React.FC = () => {
 
       {/* Create / Edit Modal */}
       {(modal?.type === 'create' || modal?.type === 'edit') && (
-        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="user-modal-title" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow" style={{ borderRadius: '12px' }}>
               <div className="modal-header border-bottom">
-                <h5 className="modal-title fw-bold">{modal.type === 'create' ? 'Create New User' : 'Edit User'}</h5>
-                <button type="button" className="btn-close" onClick={closeModal}></button>
+                <h5 id="user-modal-title" className="modal-title fw-bold">{modal.type === 'create' ? 'Create New User' : 'Edit User'}</h5>
+                <button type="button" className="btn-close" aria-label="Close" onClick={closeModal}></button>
               </div>
               <form onSubmit={modal.type === 'create' ? handleCreateSubmit : handleEditSubmit}>
                 <div className="modal-body p-4">
@@ -379,12 +381,12 @@ export const UserManagement: React.FC = () => {
 
       {/* Reset Password Modal */}
       {modal?.type === 'reset' && (
-        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reset-modal-title" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow" style={{ borderRadius: '12px' }}>
               <div className="modal-header border-bottom">
-                <h5 className="modal-title fw-bold">Reset Password — {modal.user.name}</h5>
-                <button type="button" className="btn-close" onClick={closeModal}></button>
+                <h5 id="reset-modal-title" className="modal-title fw-bold">Reset Password — {modal.user.name}</h5>
+                <button type="button" className="btn-close" aria-label="Close" onClick={closeModal}></button>
               </div>
               <form onSubmit={handleResetSubmit}>
                 <div className="modal-body p-4">

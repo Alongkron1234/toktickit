@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRequester } from '../context/RequesterContext';
+import { useAuth } from '../context/AuthContext';
+import { ActionsTakenSection } from './ActionsTakenSection';
+import { useEscapeKey } from '../utils/useEscapeKey';
 
 export interface AttachmentItem {
   id: number;
@@ -25,6 +27,7 @@ export interface TicketDetailData {
   requestedPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   itPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   currentStatus: 'NEW' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REOPENED';
+  version?: number;
   appearsResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -53,7 +56,7 @@ export interface TicketDetailScreenProps {
 }
 
 export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId, onBack }) => {
-  const { currentRequester } = useRequester();
+  const { user: currentRequester, token } = useAuth();
 
   const [ticket, setTicket] = useState<TicketDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +108,11 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
+  const closeUploadModal = useCallback(() => setShowUploadModal(false), []);
+  const closeRemoveModal = useCallback(() => setRemovingAttachment(null), []);
+  useEscapeKey(showUploadModal, closeUploadModal);
+  useEscapeKey(removingAttachment !== null, closeRemoveModal);
+
   // Fetch Public Comments
   const fetchComments = useCallback(async () => {
     if (!currentRequester) return;
@@ -113,7 +121,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     try {
       const response = await fetch(`/api/tickets/${ticketId}/comments`, {
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -130,7 +138,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     } finally {
       setCommentsLoading(false);
     }
-  }, [ticketId, currentRequester]);
+  }, [ticketId, currentRequester, token]);
 
   // Fetch Ticket Detail
   const fetchTicketDetail = useCallback(async () => {
@@ -145,7 +153,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     try {
       const response = await fetch(`/api/tickets/${ticketId}`, {
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -163,7 +171,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     } finally {
       setLoading(false);
     }
-  }, [ticketId, currentRequester, fetchComments]);
+  }, [ticketId, currentRequester, token, fetchComments]);
 
   useEffect(() => {
     fetchTicketDetail();
@@ -176,7 +184,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
     try {
       const res = await fetch(`/api/attachments/${attachment.id}/download`, {
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -214,7 +222,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
       const res = await fetch(`/api/tickets/${ticketId}/attachments`, {
         method: 'POST',
         headers: {
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -260,7 +268,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           removalReason: removalReason.trim(),
@@ -297,7 +305,7 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           body: newCommentText.trim(),
@@ -335,17 +343,22 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Dev-Requester-Id': currentRequester.id.toString(),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: 'REOPENED',
+          expectedVersion: ticket?.version,
         }),
       });
 
       const result = await res.json();
 
       if (!res.ok || !result.success) {
-        throw new Error(result.error?.message || 'Failed to reopen ticket.');
+        throw new Error(
+          result.error?.code === 'STALE_UPDATE'
+            ? 'This Ticket was changed by someone else. Reload to see the latest version.'
+            : result.error?.message || 'Failed to reopen ticket.'
+        );
       }
 
       await fetchTicketDetail();
@@ -686,6 +699,19 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
         </div>
       </div>
 
+      {/* Actions Taken (read-only) */}
+      {currentRequester && (
+        <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+          <div className="card-body p-3 p-md-4">
+            <ActionsTakenSection
+              ticketId={ticketId}
+              getHeaders={() => ({ Authorization: `Bearer ${token}` })}
+              readOnly
+            />
+          </div>
+        </div>
+      )}
+
       {/* Public Comments Section */}
       <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
         <div className="card-header bg-white border-bottom p-3 p-md-4">
@@ -793,16 +819,17 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
 
       {/* Upload Attachment Modal */}
       {showUploadModal && (
-        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="upload-modal-title" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow" style={{ borderRadius: '12px' }}>
               <div className="modal-header border-bottom">
-                <h5 className="modal-title fw-bold" style={{ color: '#111827' }}>
+                <h5 id="upload-modal-title" className="modal-title fw-bold" style={{ color: '#111827' }}>
                   Upload Attachment
                 </h5>
                 <button
                   type="button"
                   className="btn-close"
+                  aria-label="Close"
                   onClick={() => setShowUploadModal(false)}
                 ></button>
               </div>
@@ -944,14 +971,15 @@ export const TicketDetailScreen: React.FC<TicketDetailScreenProps> = ({ ticketId
 
       {/* Soft Remove Confirmation Modal */}
       {removingAttachment && (
-        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="remove-modal-title" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow" style={{ borderRadius: '12px' }}>
               <div className="modal-header border-bottom">
-                <h5 className="modal-title fw-bold text-danger">Remove Attachment</h5>
+                <h5 id="remove-modal-title" className="modal-title fw-bold text-danger">Remove Attachment</h5>
                 <button
                   type="button"
                   className="btn-close"
+                  aria-label="Close"
                   onClick={() => setRemovingAttachment(null)}
                 ></button>
               </div>

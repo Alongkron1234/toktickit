@@ -81,3 +81,20 @@ export const getPaginationPages = (current: number, total: number): (number | '.
   pages.push(total);
   return pages;
 };
+
+// Action status pill (Lab 4)
+export const getActionStatusPill = (s: string): CSSProperties => {
+  switch (s) {
+    case 'OPEN':      return { ...basePillStyle, backgroundColor: '#E0F2FE', color: '#0284C7', border: '1px solid #7DD3FC' };
+    case 'COMPLETED': return { ...basePillStyle, backgroundColor: '#DCFCE7', color: '#16A34A', border: '1px solid #86EFAC' };
+    case 'CANCELLED': return { ...basePillStyle, backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1' };
+    default:          return { ...basePillStyle, backgroundColor: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' };
+  }
+};
+
+export const followUpPill: CSSProperties = {
+  ...basePillStyle,
+  backgroundColor: '#FEF3C7',
+  color: '#D97706',
+  border: '1px solid #FDE68A',
+};

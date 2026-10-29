@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ActionsTakenSection } from './ActionsTakenSection';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate } from '../utils/badges';
 
 export interface StaffAttachmentItem {
@@ -23,6 +24,9 @@ export interface StaffTicketDetailData {
   itPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   currentStatus: 'NEW' | 'OPEN' | 'IN_PROGRESS' | 'WAITING_FOR_REQUESTER' | 'RESOLVED' | 'CLOSED' | 'REOPENED' | 'CANCELLED';
   resolutionSummary?: string | null;
+  version?: number;
+  allowedTransitions?: string[];
+  openActionsCount?: number;
   appearsResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -53,19 +57,6 @@ export interface StaffTicketDetailProps {
   onBack: () => void;
 }
 
-// Mirrors the server-side transition matrix in server/src/app.ts — client-side is
-// UX guidance only; the backend is the real gate.
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  NEW: ['OPEN', 'CANCELLED'],
-  OPEN: ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS: ['WAITING_FOR_REQUESTER', 'RESOLVED', 'CANCELLED'],
-  WAITING_FOR_REQUESTER: ['IN_PROGRESS', 'RESOLVED', 'CANCELLED'],
-  RESOLVED: ['CLOSED'],
-  REOPENED: ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
-  CLOSED: [],
-  CANCELLED: [],
-};
-
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, onBack }) => {
@@ -86,13 +77,16 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   const [priorityError, setPriorityError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [gateReasons, setGateReasons] = useState<{ reason: string; count?: number }[]>([]);
+  const [conflict, setConflict] = useState(false);
   const [pendingStatus, setPendingStatus] = useState('');
   const [resolutionSummaryDraft, setResolutionSummaryDraft] = useState('');
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'comments' | 'notes' | 'attachments'>('comments');
+  const [activeTab, setActiveTab] = useState<'comments' | 'notes' | 'attachments' | 'actions'>('comments');
   const [comments, setComments] = useState<CommentOrNote[]>([]);
   const [notes, setNotes] = useState<CommentOrNote[]>([]);
+  const [actionsCount, setActionsCount] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [notesLoading, setNotesLoading] = useState(false);
   const [newCommentText, setNewCommentText] = useState('');
@@ -204,7 +198,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
       const res = await fetch(`/api/staff/tickets/${ticketId}/ownership`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ ownerId: user.id }),
+        body: JSON.stringify({ ownerId: user.id, expectedVersion: ticket?.version }),
       });
       if (await handleUnauthorized(res)) return;
       const result = await res.json();
@@ -225,7 +219,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
       const res = await fetch(`/api/staff/tickets/${ticketId}/ownership`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ ownerId: parseInt(reassignTarget, 10) }),
+        body: JSON.stringify({ ownerId: parseInt(reassignTarget, 10), expectedVersion: ticket?.version }),
       });
       if (await handleUnauthorized(res)) return;
       const result = await res.json();
@@ -247,12 +241,12 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
       const res = await fetch(`/api/staff/tickets/${ticketId}/priority`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ itPriority: newPriority }),
+        body: JSON.stringify({ itPriority: newPriority, expectedVersion: ticket?.version }),
       });
       if (await handleUnauthorized(res)) return;
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to update IT Priority.');
-      setTicket((t) => (t ? { ...t, itPriority: result.data.itPriority } : t));
+      await fetchTicket();
     } catch (err: unknown) {
       setPriorityError(getErrorMessage(err, 'Failed to update IT Priority.'));
     } finally {
@@ -261,18 +255,35 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
   };
 
   const handleStatusSubmit = async () => {
-    if (!ticket || pendingStatus === ticket.currentStatus) return;
+    if (!ticket || pendingStatus === ticket.currentStatus || statusSaving) return;
     setStatusSaving(true);
     setStatusError(null);
+    setGateReasons([]);
+    setConflict(false);
     try {
       const res = await fetch(`/api/staff/tickets/${ticketId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ status: pendingStatus, resolutionSummary: resolutionSummaryDraft.trim() || undefined }),
+        body: JSON.stringify({
+          status: pendingStatus,
+          resolutionSummary: resolutionSummaryDraft.trim() || undefined,
+          expectedVersion: ticket.version,
+        }),
       });
       if (await handleUnauthorized(res)) return;
       const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to update status.');
+      if (!res.ok || !result.success) {
+        const code = result.error?.code;
+        if (code === 'STALE_UPDATE') {
+          setConflict(true);
+        } else if (code === 'RESOLUTION_GATE_FAILED') {
+          setGateReasons(Array.isArray(result.error.details) ? result.error.details : []);
+        } else {
+          setStatusError(result.error?.message || 'Failed to update status.');
+        }
+        setPendingStatus(ticket.currentStatus);
+        return;
+      }
       await fetchTicket();
     } catch (err: unknown) {
       setStatusError(getErrorMessage(err, 'Failed to update status.'));
@@ -280,6 +291,13 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     } finally {
       setStatusSaving(false);
     }
+  };
+
+  const handleReload = async () => {
+    setConflict(false);
+    setGateReasons([]);
+    setStatusError(null);
+    await fetchTicket();
   };
 
   const handlePostComment = async (e: React.FormEvent) => {
@@ -386,7 +404,9 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
     );
   }
 
-  const allowedNextStatuses = VALID_TRANSITIONS[ticket.currentStatus] || [];
+  // The backend decides which transitions are available (FR-11); the UI only renders them.
+  const allowedNextStatuses = ticket.allowedTransitions ?? [];
+  const openActionsCount = ticket.openActionsCount ?? 0;
   const isSelfOwner = ticket.owner?.id === user?.id;
   // Defensive default: the API always returns an array here, but guard anyway.
   const attachments = ticket.attachments ?? [];
@@ -497,7 +517,7 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
             <div className="col-12 col-md-4">
               <label htmlFor="staff-detail-status" className="form-label text-muted small mb-1 fw-semibold">Current Status</label>
               <select id="staff-detail-status" className="form-select form-select-sm" value={pendingStatus}
-                onChange={(e) => setPendingStatus(e.target.value)} disabled={statusSaving}>
+                onChange={(e) => setPendingStatus(e.target.value)} disabled={statusSaving || allowedNextStatuses.length === 0}>
                 <option value={ticket.currentStatus}>{formatStatus(ticket.currentStatus)} (current)</option>
                 {allowedNextStatuses.map((s) => <option key={s} value={s}>{formatStatus(s)}</option>)}
               </select>
@@ -510,6 +530,36 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
             </div>
           </div>
 
+          {allowedNextStatuses.length === 0 && (
+            <div className="text-muted small mb-3" id="staff-status-terminal-note">
+              No further status changes are available for this Ticket.
+            </div>
+          )}
+          {allowedNextStatuses.includes('RESOLVED') && openActionsCount > 0 && (
+            <div className="alert alert-warning small p-2 mb-3" role="status" style={{ borderRadius: '8px' }}>
+              ⚠ {openActionsCount} action(s) are still open. Complete or cancel them before resolving.
+            </div>
+          )}
+          {gateReasons.length > 0 && (
+            <div className="alert alert-danger small p-2 mb-3" role="alert" style={{ borderRadius: '8px' }}>
+              <div className="fw-semibold">The Ticket cannot be resolved yet:</div>
+              <ul className="mb-0 ps-3">
+                {gateReasons.map((r) => (
+                  <li key={r.reason}>
+                    {r.reason === 'OPEN_ACTIONS'
+                      ? `${r.count} action(s) are still open.`
+                      : 'A Resolution Summary is required.'}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {conflict && (
+            <div className="alert alert-warning small p-2 mb-3 d-flex align-items-center justify-content-between gap-2 flex-wrap" role="alert" style={{ borderRadius: '8px' }}>
+              <span>This Ticket was changed by someone else. Reload to see the latest version.</span>
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleReload}>Reload</button>
+            </div>
+          )}
           {statusError && <div className="alert alert-danger small p-2 mb-3" style={{ borderRadius: '8px' }}>{statusError}</div>}
 
           <div className="mb-3">
@@ -552,6 +602,13 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
                 </button>
               </li>
             )}
+            <li className="nav-item">
+              <button className={`nav-link ${activeTab === 'actions' ? 'active fw-semibold' : ''}`}
+                style={activeTab === 'actions' ? { color: '#0B7A46', borderColor: '#0B7A46 #0B7A46 #fff' } : { color: '#4A6358', border: 'none' }}
+                onClick={() => setActiveTab('actions')}>
+                🛠 Actions Taken ({actionsCount})
+              </button>
+            </li>
             <li className="nav-item">
               <button className={`nav-link ${activeTab === 'attachments' ? 'active fw-semibold' : ''}`}
                 style={activeTab === 'attachments' ? { color: '#15803D', borderColor: '#15803D #15803D #fff' } : { color: '#4A6358', border: 'none' }}
@@ -642,6 +699,18 @@ export const StaffTicketDetail: React.FC<StaffTicketDetailProps> = ({ ticketId, 
               </form>
             </div>
           )}
+
+          {/* Always mounted (hidden when inactive) so the tab's count badge is loaded with the page. */}
+          <div hidden={activeTab !== 'actions'}>
+            <ActionsTakenSection
+              ticketId={ticket.id}
+              getHeaders={authHeaders}
+              readOnly={false}
+              performerName={user?.name}
+              members={members}
+              onCountChange={setActionsCount}
+            />
+          </div>
 
           {activeTab === 'attachments' && (
             <div>

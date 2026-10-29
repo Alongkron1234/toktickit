@@ -49,6 +49,8 @@ model User {
   assignedTickets  Ticket[]        @relation("TicketOwner")
   publicComments   PublicComment[]
   internalNotes    InternalNote[]
+  performedActions ActionTaken[]   @relation("ActionPerformer")
+  assignedActions  ActionTaken[]   @relation("ActionAssignee")
 
   @@index([email])
   @@index([role, isActive])
@@ -86,6 +88,7 @@ model Ticket {
   currentStatus     TicketStatus @default(NEW)
   appearsResolvedAt DateTime?
   resolutionSummary String?
+  version           Int          @default(0)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -96,10 +99,13 @@ model Ticket {
   attachments    Attachment[]
   publicComments PublicComment[]
   internalNotes  InternalNote[]
+  actionsTaken   ActionTaken[]
 
   @@index([requesterId, createdAt])
   @@index([ownerId, currentStatus])
   @@index([ticketNumber])
+  @@index([requesterId, currentStatus])
+  @@index([currentStatus, updatedAt])
 }
 
 model Attachment {
@@ -143,4 +149,36 @@ model InternalNote {
   author User   @relation(fields: [authorId], references: [id])
 
   @@index([ticketId, createdAt])
+}
+
+enum ActionStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+model ActionTaken {
+  id               Int          @id @default(autoincrement())
+  ticketId         Int
+  performedById    Int
+  assigneeId       Int?
+  actionAt         DateTime     @default(now())
+  description      String
+  result           String?
+  status           ActionStatus @default(OPEN)
+  followUpRequired Boolean      @default(false)
+  followUpNote     String?
+  attachmentNotes  String?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  performedBy User   @relation("ActionPerformer", fields: [performedById], references: [id])
+  assignee    User?  @relation("ActionAssignee", fields: [assigneeId], references: [id])
+
+  @@index([ticketId, actionAt])
+  @@index([assigneeId, status])
+  @@index([performedById, actionAt])
 }

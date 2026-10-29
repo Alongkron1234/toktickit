@@ -1,6 +1,6 @@
 # TokTickIT · Full-Stack IT Service Desk
 
-TokTickIT is an IT service desk web application for handling Account & Access, Hardware, Software, and Network support requests. This repository contains the Lab 3 (Sprint 3) full-stack implementation built strictly according to the **Zen Green** visual design system. It replaces Lab 2's simulated Development Requester selector with real email/password authentication and role-based authorization for three roles — **Requester**, **IT Staff**, and **Administrator** — and adds an operational IT Staff ticket workflow and a minimalist Administrator user management screen, on top of the Lab 2 ticket creation, listing, and attachment lifecycle features.
+TokTickIT is an IT service desk web application for handling Account & Access, Hardware, Software, and Network support requests. This repository contains the Lab 4 (Sprint 4) full-stack implementation built strictly according to the **Zen Green** visual design system. Lab 4 adds **Actions Taken** records on tickets, a controlled ticket status workflow with a resolution gate and stale-update protection, role-based **dashboards** for Requesters and IT Staff, and a final security cleanup, on top of the Lab 3 real email/password authentication with three roles — **Requester**, **IT Staff**, and **Administrator** — the IT Staff ticket workflow, the Administrator user management screen, and the Lab 2 ticket creation, listing, and attachment lifecycle features.
 
 ---
 
@@ -11,7 +11,7 @@ TokTickIT is an IT service desk web application for handling Account & Access, H
 - **Database & ORM**: PostgreSQL, Prisma ORM
 - **Auth**: JWT-based sessions, bcrypt password hashing, server-side role-based authorization
 - **Testing**: Vitest (Unit/Component), Supertest (API), Playwright (E2E)
-- **Workflow**: Git Flow (`main` <- `lab3-staging` <- `feature/*`), GitHub Projects
+- **Workflow**: Git Flow (`main` <- `lab4-staging` <- one `feature/*` branch per Issue, each merged by Pull Request after peer review), GitHub Projects
 
 ---
 
@@ -20,21 +20,23 @@ TokTickIT is an IT service desk web application for handling Account & Access, H
 ```
 toktickit/
 ├── client/          # React + Vite frontend
-│   └── src/tests/   # UI component tests (Vitest), incl. lab-03/
+│   └── src/tests/   # UI component tests (Vitest), incl. lab-03/, lab-04/
 ├── server/          # Node.js + Express + Prisma backend
 │   ├── prisma/      # Prisma schema, migrations, and seed scripts
 │   ├── src/         # Express server source code
 │   ├── scripts/     # One-off maintenance/E2E-support scripts
-│   └── tests/       # API integration tests (Supertest), incl. lab-03/
-├── e2e/             # Playwright E2E specs (lab-02/, lab-03/)
+│   └── tests/       # API integration tests (Supertest), incl. lab-03/, lab-04/
+├── e2e/             # Playwright E2E specs (lab-02/, lab-03/, lab-04/ incl. screenshots.spec.ts)
 ├── playwright.config.ts  # Playwright config (repo root; testDir: ./e2e)
 ├── docs/
 │   ├── lab-01/      # Lab 1 documentation
 │   ├── lab-02/      # Lab 2 documentation (specification.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
-│   └── lab-03/      # Lab 3 documentation (specification.md, api-spec.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
+│   ├── lab-03/      # Lab 3 documentation (specification.md, api-spec.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
+│   └── lab-04/      # Lab 4 documentation (specification.md, api-spec.md, ui-spec.md, tests.md, reviewer.md, ai-use.md)
 ├── artifacts/
 │   ├── lab-02/screenshots/  # Lab 2 responsive screenshots & evidence
-│   └── lab-03/screenshots/  # Lab 3 responsive screenshots (authentication, staff-queue, staff-ticket-detail, user-management)
+│   ├── lab-03/screenshots/  # Lab 3 responsive screenshots (authentication, staff-queue, staff-ticket-detail, user-management)
+│   └── lab-04/screenshots/  # Lab 4 screenshots at desktop, tablet, and mobile (actions-taken, requester-dashboard, staff-dashboard, ticket-workflow)
 ├── .gitignore
 └── README.md
 ```
@@ -75,18 +77,24 @@ cp server/.env.example server/.env
 ```
 Ensure `DATABASE_URL` is set to your PostgreSQL connection string in `.env`.
 
+With the local `prisma dev` database (`npm run db:dev` in `server`), also set `DB_POOL_MAX=1` in `server/.env`; without it the server tests can fail intermittently because that database accepts very few connections.
+
+> The Prisma client in `server/generated/` is **not committed**. `npm install` in `server` runs `prisma generate` automatically (`postinstall`); run `npx prisma generate` manually after changing `schema.prisma`.
+
 ### 4. Database Setup & Migration & Seeding
 Run Prisma migrations and seed initial Requesters, Categories, and Related Systems:
 ```bash
 cd server
 
-# Apply database migrations
-npx prisma migrate dev
+# Apply the committed migrations (does not reset data)
+npx prisma migrate deploy
 
 # Seed database (Requesters, Categories, Related Systems, Sample Tickets)
 npx prisma db seed
 cd ..
 ```
+
+Migrations live in `server/prisma/migrations/` and are applied with `migrate deploy`. Avoid `prisma migrate dev` on a database that already holds data: it can offer to reset it. To create a new migration, generate the SQL with `prisma migrate diff`, review it, then apply it with `migrate deploy`. The seed is idempotent (upsert), so it can be re-run safely.
 
 ### 5. Running the Application
 Start the backend and frontend development servers:
@@ -113,6 +121,7 @@ The seed script creates accounts for each role. All seeded accounts share the sa
 | Requester | `jennifer.anderson@example.com` | `InitialPassword123!` |
 | IT Staff | `alex.thompson@toktickit.com` | `InitialPassword123!` |
 | Administrator | `john.smith@toktickit.com` | `InitialPassword123!` |
+| Requester (no tickets, empty dashboard) | `emma.wilson@example.com` | `InitialPassword123!` |
 
 ---
 
@@ -121,7 +130,7 @@ The seed script creates accounts for each role. All seeded accounts share the sa
 Run all automated test suites across Server, Client, and E2E levels:
 
 ```bash
-# 1. Run server API integration tests (Supertest)
+# 1. Run server API integration tests (Supertest) — needs the database running and seeded
 cd server
 npm test
 
@@ -133,9 +142,21 @@ npm test
 npx playwright test
 ```
 
+Before running E2E tests, start the database (`npm run db:dev` in `server`), the backend (`npm run dev` in `server`) and the frontend (`npm run dev` in `client`), and make sure the database is seeded. Test case IDs and their status per lab are listed in `docs/lab-0X/tests.md`.
+
+Lab 4 results on the feature branch: server 139 tests (18 files), client 71 tests, Playwright 29 tests (Lab 2: 3, Lab 3: 15, Lab 4: 11), all passing. Run the server tests with one file at a time (`npm test` already does this) because they share one database. The Lab 4 screenshots are regenerated by `npx playwright test e2e/lab-04/screenshots.spec.ts`; it overwrites the files in `artifacts/lab-04/screenshots/`.
+
 ---
 
 ## 📋 Features
+
+### Lab 4 / Sprint 4 Scope
+- **Actions Taken**: IT Staff and Administrators record, edit, complete or cancel actions on a ticket; the performer always comes from the signed-in user. Requesters can read actions on their own tickets.
+- **Ticket Workflow**: Status changes use optimistic versioning (`expectedVersion`) and enforce permitted transitions and a required resolution summary.
+- **Dashboards**: Requester and Staff/Admin dashboards (default landing page) with metrics computed by the backend; metric cards drill down into the filtered ticket list.
+- **Auth cleanup & hardening**: Identity comes only from the JWT (the `X-Dev-Requester-Id` header and the Requester selector are removed); a Requester who requests another user's ticket gets the same `404` as for a missing ticket; accessible modals (dialog role, labels, Esc to close); double-submit protection covered by tests.
+
+**Lab 4 demo path**: sign in as Requester (Jennifer) → Dashboard → create a ticket → sign in as IT Staff (Alex) → Dashboard → open the ticket from the queue → claim it, add an Actions Taken entry and walk the status to Resolved → sign in as Requester → comment / reopen; Administrator (John) can additionally see user counts on the dashboard.
 
 ### Lab 3 / Sprint 3 Scope
 - **Authentication & Role-Based Authorization**: Email/password login, bcrypt-hashed passwords, JWT sessions, mandatory password change on first login, and server-side authorization for three roles — Requester, IT Staff, Administrator.

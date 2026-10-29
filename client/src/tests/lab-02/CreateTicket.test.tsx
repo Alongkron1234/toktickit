@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from '../../App';
 
@@ -21,18 +21,6 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
     vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
       const urlStr = typeof url === 'string' ? url : (url as Request).url;
       const method = init?.method || 'GET';
-
-      if (urlStr.includes('/api/requesters')) {
-        return {
-          ok: true,
-          json: async () => ({
-            success: true,
-            data: [
-              { id: 1, name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', isActive: true },
-            ],
-          }),
-        } as Response;
-      }
 
       if (urlStr.includes('/api/categories')) {
         return {
@@ -96,34 +84,15 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
     });
+
+    // Lab 4: the default landing page is the Dashboard; these Lab 2 flows start from My Tickets.
+    fireEvent.click(screen.getByRole('button', { name: /My Tickets/i }));
+    await waitFor(() => {
+      expect(within(screen.getByRole('main')).getByRole('button', { name: /^Create Ticket$/i })).toBeInTheDocument();
+    });
   };
 
-  it('UI-01: Requester Selection dropdown renders active users and handles selection', async () => {
-    vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
-      const urlStr = typeof url === 'string' ? url : (url as Request).url;
-      if (urlStr.includes('/api/requesters')) {
-        return {
-          ok: true,
-          json: async () => ({
-            success: true,
-            data: [
-              { id: 1, name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', isActive: true },
-              { id: 2, name: 'Michael Brown', email: 'michael.brown@example.com', isActive: true },
-            ],
-          }),
-        } as Response;
-      }
-      if (urlStr.includes('/api/categories')) {
-        return { ok: true, json: async () => [] } as Response;
-      }
-      if (urlStr.includes('/api/tickets')) {
-        return { ok: true, json: async () => ({ success: true, data: [], pagination: {} }) } as Response;
-      }
-      return { ok: false, json: async () => ({}) } as Response;
-    });
-
-    render(<App />);
-
+  it('UI-01: a signed-in Requester sees their own session; no Development Requester selector or lookup remains', async () => {
     localStorage.setItem('toktickit_user', JSON.stringify({
       id: 1,
       name: 'Jennifer Anderson',
@@ -132,22 +101,26 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
       isActive: true,
       requiresPasswordChange: false,
     }));
+    localStorage.setItem('toktickit_token', 'mock_test_token');
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async () => {
+      return { ok: true, json: async () => ({ success: true, data: [], pagination: {} }) } as Response;
+    });
 
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByText(/Jennifer Anderson/i)).toBeInTheDocument();
     });
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
-    });
+    expect(screen.getByRole('button', { name: /Logout/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Change Requester|Development Requester|Select a Requester/i)).not.toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/api/requesters'))).toBe(false);
   });
 
   it('UI-02: Renders Create Ticket form and loads option dropdowns', async () => {
     await setupSelectedRequester();
 
     // Navigate to Create Ticket
-    const createBtn = screen.getByRole('button', { name: /^Create Ticket$/i });
+    const createBtn = within(screen.getByRole('main')).getByRole('button', { name: /^Create Ticket$/i });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
@@ -162,7 +135,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
   it('UI-03: Triggers client-side inline validation errors when submitting invalid inputs', async () => {
     await setupSelectedRequester();
 
-    const createBtn = screen.getByRole('button', { name: /^Create Ticket$/i });
+    const createBtn = within(screen.getByRole('main')).getByRole('button', { name: /^Create Ticket$/i });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
@@ -184,7 +157,7 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
   it('UI-04: Submits valid form, displays busy state, and shows success alert with ticket number', async () => {
     await setupSelectedRequester();
 
-    const createBtn = screen.getByRole('button', { name: /^Create Ticket$/i });
+    const createBtn = within(screen.getByRole('main')).getByRole('button', { name: /^Create Ticket$/i });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
@@ -204,5 +177,30 @@ describe('Lab 2 UI Tests (Issue 3 & Issue 5 - Development Requester & Create Tic
       expect(screen.getByText(/Ticket Created Successfully!/i)).toBeInTheDocument();
       expect(screen.getByText(/TKT-2026-000001/i)).toBeInTheDocument();
     });
+  });
+  it('UI-05: double-clicking Submit Ticket creates exactly one ticket (no duplicate request)', async () => {
+    await setupSelectedRequester();
+
+    fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: /^Create Ticket$/i }));
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Category/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/Category/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/Related System/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/Summary/i), { target: { value: 'Unable to connect to campus wifi' } });
+    fireEvent.change(screen.getByLabelText(/Description/i), { target: { value: 'Wi-Fi disconnects every 5 minutes in Library.' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Submit Ticket/i });
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Ticket Created Successfully!/i)).toBeInTheDocument();
+    });
+    const posts = (global.fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls.filter(
+      ([url, init]) => String(url).endsWith('/api/tickets') && init?.method === 'POST'
+    );
+    expect(posts).toHaveLength(1);
   });
 });

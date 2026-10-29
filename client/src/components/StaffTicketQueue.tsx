@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getPriorityPill, getStatusPill, formatStatus, formatPriority, formatDate, getPaginationPages } from '../utils/badges';
 
@@ -23,8 +23,16 @@ export interface StaffQueuePagination {
   limit: number;
 }
 
+export interface QueueFilters {
+  status?: string; // single status or comma-separated list
+  priority?: string;
+  ownerId?: 'me' | 'unassigned';
+  focusSearch?: boolean; // dashboard "Search Tickets": land with the search box focused
+}
+
 export interface StaffTicketQueueProps {
   onSelectTicket?: (ticketId: number) => void;
+  initialFilters?: QueueFilters;
 }
 
 const thStyle: React.CSSProperties = {
@@ -51,13 +59,13 @@ const selectStyle: React.CSSProperties = {
 const STATUS_OPTIONS = ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED'];
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTicket }) => {
+export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTicket, initialFilters }) => {
   const { user, token, logout } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [status, setStatus] = useState('');
-  const [priority, setPriority] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState<'' | 'unassigned' | 'me'>('');
+  const [status, setStatus] = useState(initialFilters?.status ?? '');
+  const [priority, setPriority] = useState(initialFilters?.priority ?? '');
+  const [ownerFilter, setOwnerFilter] = useState<'' | 'unassigned' | 'me'>(initialFilters?.ownerId ?? '');
   const [sortBy, setSortBy] = useState<'createdAt' | 'itPriority' | 'currentStatus' | 'ticketNumber'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -69,7 +77,12 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
 
+  // Only the most recent request may update the screen, so a slow older response cannot overwrite a newer one.
+  const latestRequest = useRef(0);
+
   const fetchTickets = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     if (!token) {
       setLoading(false);
       return;
@@ -94,6 +107,8 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (isStale()) return;
+
       // Session expired or invalid — sign out and let the app fall back to the Login screen.
       if (res.status === 401) {
         await logout();
@@ -110,14 +125,16 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
       }
 
       const result = await res.json();
+      if (isStale()) return;
       if (!res.ok || !result.success) throw new Error(result.error?.message || 'Failed to fetch ticket queue.');
 
       setTickets(result.data.tickets || []);
       if (result.data.pagination) setPagination(result.data.pagination);
     } catch (err: any) {
+      if (isStale()) return;
       setError(err.message || 'Unable to load the ticket queue. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [token, user, searchTerm, status, priority, ownerFilter, sortBy, sortOrder, page, limit, logout]);
 
@@ -180,6 +197,7 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
                 </span>
                 <input
                   id="staff-queue-search-input"
+                  autoFocus={initialFilters?.focusSearch}
                   type="text"
                   className="form-control border-start-0 ps-1"
                   placeholder="Search by ticket number or summary..."
@@ -195,6 +213,9 @@ export const StaffTicketQueue: React.FC<StaffTicketQueueProps> = ({ onSelectTick
               <select id="staff-queue-status-select" className="form-select" value={status}
                 onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={selectStyle}>
                 <option value="">All Statuses</option>
+                {status.includes(',') && (
+                  <option value={status}>{status.split(',').map(formatStatus).join(' + ')}</option>
+                )}
                 {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{formatStatus(s)}</option>)}
               </select>
             </div>

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
+import { PrismaClient, Prisma, Priority, TicketStatus, Role, ActionStatus } from '../generated/prisma/client';
 import bcrypt from 'bcryptjs';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -27,11 +27,12 @@ const relatedSystems = [
 const DEFAULT_PASSWORD_HASH = bcrypt.hashSync('InitialPassword123!', 10);
 
 const seedUsers = [
-  // Requesters (4 active, 1 inactive)
+  // Requesters (5 active, 1 inactive). Emma has no Tickets so the Requester Dashboard can show its zero state.
   { name: 'Jennifer Anderson', email: 'jennifer.anderson@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
   { name: 'Michael Brown', email: 'michael.brown@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
   { name: 'Sarah Johnson', email: 'sarah.johnson@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
   { name: 'David Lee', email: 'david.lee@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
+  { name: 'Emma Wilson', email: 'emma.wilson@example.com', role: Role.REQUESTER, isActive: true, requiresPasswordChange: false },
   { name: 'Robert Taylor', email: 'robert.taylor@example.com', role: Role.REQUESTER, isActive: false, requiresPasswordChange: false },
 
   // IT Staff (3 active, 1 inactive)
@@ -158,6 +159,68 @@ async function main() {
       itPriority: Priority.LOW,
       currentStatus: TicketStatus.OPEN,
     },
+    // Lab 4: complete the lifecycle so every one of the eight statuses is represented.
+    {
+      ticketNumber: 'TKT-2026-001229',
+      requesterId: seededUsers['Michael Brown'],
+      ownerId: null,
+      categoryId: seededCategories['Account and Access'],
+      relatedSystemId: seededSystems['Email'],
+      summary: 'Request mailbox access for shared account',
+      description: 'Please grant access to the shared department mailbox for the new teaching assistant.',
+      requestedPriority: Priority.HIGH,
+      itPriority: Priority.CRITICAL,
+      currentStatus: TicketStatus.NEW,
+    },
+    {
+      ticketNumber: 'TKT-2026-001228',
+      requesterId: seededUsers['David Lee'],
+      ownerId: seededUsers['Alex Thompson'],
+      categoryId: seededCategories['Network'],
+      relatedSystemId: seededSystems['Campus Wi-Fi'],
+      summary: 'Wi-Fi drops in lecture hall 3',
+      description: 'Connection drops every few minutes during lectures. Waiting for the room number and device list.',
+      requestedPriority: Priority.MEDIUM,
+      itPriority: Priority.HIGH,
+      currentStatus: TicketStatus.WAITING_FOR_REQUESTER,
+    },
+    {
+      ticketNumber: 'TKT-2026-001227',
+      requesterId: seededUsers['Sarah Johnson'],
+      ownerId: seededUsers['Kevin Patel'],
+      categoryId: seededCategories['Software'],
+      relatedSystemId: seededSystems['Grade Submission App'],
+      summary: 'Grade submission app shows blank page',
+      description: 'The grade submission page loads blank after login.',
+      requestedPriority: Priority.MEDIUM,
+      itPriority: Priority.MEDIUM,
+      currentStatus: TicketStatus.CLOSED,
+      resolutionSummary: 'Cleared the cached session data and re-deployed the app configuration.',
+    },
+    {
+      ticketNumber: 'TKT-2026-001226',
+      requesterId: seededUsers['Jennifer Anderson'],
+      ownerId: seededUsers['Lisa Martinez'],
+      categoryId: seededCategories['Hardware'],
+      relatedSystemId: seededSystems['Printer'],
+      summary: 'Printer jams again after repair',
+      description: 'The printer jammed again two days after it was repaired.',
+      requestedPriority: Priority.LOW,
+      itPriority: Priority.LOW,
+      currentStatus: TicketStatus.REOPENED,
+    },
+    {
+      ticketNumber: 'TKT-2026-001225',
+      requesterId: seededUsers['Sarah Johnson'],
+      ownerId: null,
+      categoryId: seededCategories['Account and Access'],
+      relatedSystemId: seededSystems['VPN'],
+      summary: 'Duplicate VPN access request',
+      description: 'Submitted twice by mistake; the other request covers this.',
+      requestedPriority: Priority.LOW,
+      itPriority: Priority.LOW,
+      currentStatus: TicketStatus.CANCELLED,
+    },
   ];
 
   for (const tData of sampleTickets) {
@@ -170,6 +233,7 @@ async function main() {
         itPriority: tData.itPriority,
         currentStatus: tData.currentStatus,
         ownerId: tData.ownerId,
+        resolutionSummary: tData.resolutionSummary ?? null,
       },
       create: tData,
     });
@@ -196,7 +260,11 @@ async function main() {
   }
 
   // 6. Seed Sample Public Comments & Internal Notes
-  if (t1234) {
+  const hasThread = t1234
+    ? (await prisma.publicComment.count({ where: { ticketId: t1234.id } })) +
+      (await prisma.internalNote.count({ where: { ticketId: t1234.id } })) > 0
+    : true;
+  if (t1234 && !hasThread) {
     console.log('Seeding Sample Comments and Notes...');
     await prisma.publicComment.create({
       data: {
@@ -223,6 +291,56 @@ async function main() {
       },
     });
     console.log('  - Public Comments and Internal Note seeded for TKT-2026-001234');
+  }
+
+  // 7. Seed Sample Actions Taken (0 / 1 / many per Ticket, different staff authors)
+  console.log('Seeding Sample Actions Taken...');
+  const t1232 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-001232' } });
+  const sampleActions = [
+    t1234 && {
+      ticketId: t1234.id,
+      performedById: seededUsers['Alex Thompson'],
+      assigneeId: null,
+      actionAt: new Date('2026-05-13T10:40:00Z'),
+      description: 'Ran battery health check on the laptop.',
+      result: 'Health capacity is at 45%.',
+      status: ActionStatus.COMPLETED,
+      completedAt: new Date('2026-05-13T10:45:00Z'),
+      attachmentNotes: 'See battery_report.pdf',
+    },
+    t1234 && {
+      ticketId: t1234.id,
+      performedById: seededUsers['Kevin Patel'],
+      assigneeId: seededUsers['Kevin Patel'],
+      actionAt: new Date('2026-05-14T08:00:00Z'),
+      description: 'Order replacement battery part #BAT-994.',
+      status: ActionStatus.OPEN,
+      followUpRequired: true,
+      followUpNote: 'Check delivery status in 3 days.',
+    },
+    t1234 && {
+      ticketId: t1234.id,
+      performedById: seededUsers['Lisa Martinez'],
+      assigneeId: null,
+      actionAt: new Date('2026-05-14T09:00:00Z'),
+      description: 'Offer loaner laptop while waiting for the part.',
+      status: ActionStatus.CANCELLED,
+      cancelledAt: new Date('2026-05-14T09:30:00Z'),
+    },
+    t1232 && {
+      ticketId: t1232.id,
+      performedById: seededUsers['Kevin Patel'],
+      assigneeId: seededUsers['Kevin Patel'],
+      actionAt: new Date('2026-05-15T13:00:00Z'),
+      description: 'Re-create the mobile mail profile on the requester device.',
+      status: ActionStatus.OPEN,
+    },
+  ].filter(Boolean) as Prisma.ActionTakenUncheckedCreateInput[];
+  for (const a of sampleActions) {
+    const exists = await prisma.actionTaken.findFirst({
+      where: { ticketId: a.ticketId, description: a.description },
+    });
+    if (!exists) await prisma.actionTaken.create({ data: a });
   }
 
   console.log('--- Seeding completed successfully ---');

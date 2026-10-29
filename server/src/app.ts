@@ -12,11 +12,14 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Priority, TicketStatus, Role } from '../generated/prisma/client';
+import { PrismaClient, Priority, TicketStatus, Role, ActionStatus } from '../generated/prisma/client';
+import { getAllowedTransitions, evaluateResolutionGate, parseStatusList } from './workflow';
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable';
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg({ connectionString });
+// Optional cap on connections per pool. The local `prisma dev` database can fail when queries overlap on several connections, so set DB_POOL_MAX=1 there.
+const poolMax = Number(process.env.DB_POOL_MAX) || undefined;
+const pool = new Pool({ connectionString, max: poolMax });
+const adapter = new PrismaPg({ connectionString, max: poolMax });
 export const prisma = new PrismaClient({ adapter });
 
 import {
@@ -80,86 +83,8 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-// Middleware: Require X-Dev-Requester-Id Header
-export const requireRequesterHeader = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  const requesterIdHeader = req.header('X-Dev-Requester-Id');
-
-  if (!requesterIdHeader) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED_CONTEXT',
-        message: 'X-Dev-Requester-Id header is required to access this resource.',
-      },
-    });
-    return;
-  }
-
-  const requesterId = parseInt(requesterIdHeader, 10);
-  if (isNaN(requesterId)) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'INVALID_CONTEXT',
-        message: 'Invalid X-Dev-Requester-Id format.',
-      },
-    });
-    return;
-  }
-
-  try {
-    let user = await prisma.user.findUnique({ where: { id: requesterId } });
-    if (!user && requesterId > 0 && requesterId < 1000) {
-      user = {
-        id: requesterId,
-        name: `Requester ${requesterId}`,
-        email: `requester${requesterId}@example.com`,
-        role: Role.REQUESTER,
-        isActive: true,
-        requiresPasswordChange: false,
-        passwordHash: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-    }
-
-    if (!user || !user.isActive) {
-      res.status(403).json({
-        success: false,
-        error: {
-          code: 'INACTIVE_OR_NOT_FOUND',
-          message: 'Selected Requester is invalid or inactive.',
-        },
-      });
-      return;
-    }
-
-    const requester = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
-
-    req.currentRequester = requester;
-    next();
-  } catch (error) {
-    console.error('Error validating requester header:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'SERVER_ERROR',
-        message: 'Internal server error validating requester context.',
-      },
-    });
-  }
-};
+// Requester-only routes: identity and role come from the authenticated token (never from a client header).
+const requesterOnly = [requireAuth, requireRole(Role.REQUESTER)];
 
 // Helper: Auto Ticket Number Generator (BR-01: TKT-YYYY-XXXXXX)
 async function generateUniqueTicketNumber(): Promise<string> {
@@ -402,36 +327,6 @@ app.post('/api/auth/change-password', requireAuth, async (req: AuthenticatedRequ
   }
 });
 
-// GET /api/requesters - Active Requesters list (Updated for Lab 3)
-app.get('/api/requesters', async (_req, res) => {
-  try {
-    const requesters = await prisma.user.findMany({
-      where: { role: Role.REQUESTER, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isActive: true,
-      },
-      orderBy: { name: 'asc' },
-    });
-
-    res.status(200).json({
-      success: true,
-      data: requesters,
-    });
-  } catch (error) {
-    console.error('Error fetching requesters:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'FETCH_ERROR',
-        message: 'Failed to fetch active requesters.',
-      },
-    });
-  }
-});
-
 // GET /api/categories - Active Categories list
 app.get('/api/categories', async (_req, res) => {
   try {
@@ -483,7 +378,7 @@ app.get('/api/related-systems', async (_req, res) => {
 });
 
 // POST /api/tickets - Create IT Support Ticket (Issue 4)
-app.post('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/tickets', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { categoryId, relatedSystemId, summary, requestedPriority, description } = req.body;
   const validationDetails: Array<{ field: string; message: string }> = [];
 
@@ -602,7 +497,7 @@ app.post('/api/tickets', requireRequesterHeader, async (req: AuthenticatedReques
 });
 
 // GET /api/tickets - Query Owned Tickets with Search, Filter, Sort & Pagination (Issue 6)
-app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/tickets', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { search, categoryId, requestedPriority, status, sortBy, sortOrder, page, limit } = req.query;
 
   try {
@@ -624,10 +519,8 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
       whereClause.requestedPriority = requestedPriority.trim().toUpperCase();
     }
 
-    // Status Filter
-    if (status && typeof status === 'string' && status.trim()) {
-      whereClause.currentStatus = status.trim().toUpperCase();
-    }
+    // Status Filter (single value or comma-separated list)
+    const statusList = parseStatusList(status);
 
     // Sorting
     const validSortFields = ['createdAt', 'ticketNumber'];
@@ -652,12 +545,16 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
       LEFT JOIN "Category" c ON t."categoryId" = c.id
       LEFT JOIN "RelatedSystem" s ON t."relatedSystemId" = s.id
       WHERE t."requesterId" = $1
+      ${statusList.length > 0 ? `AND t."currentStatus"::text = ANY($2)` : ''}
       ${catIdNum ? `AND t."categoryId" = ${catIdNum}` : ''}
       ${prioStr ? `AND t."requestedPriority" = '${prioStr}'` : ''}
       ORDER BY t."${sortField}" ${sortDirection.toUpperCase()}
     `;
 
-    const poolResult = await pool.query(sql, [req.currentRequester!.id]);
+    const poolResult = await pool.query(
+      sql,
+      statusList.length > 0 ? [req.currentRequester!.id, statusList] : [req.currentRequester!.id]
+    );
     const allTickets = poolResult.rows.map((r: any) => ({
       id: r.id,
       ticketNumber: r.ticketNumber ?? r.ticketnumber,
@@ -715,7 +612,7 @@ app.get('/api/tickets', requireRequesterHeader, async (req: AuthenticatedRequest
 });
 
 // GET /api/tickets/:id - Retrieve Detailed Ticket Information (Issue 8 - BR-09, BR-10)
-app.get('/api/tickets/:id', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.get('/api/tickets/:id', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const ticketIdParam = req.params.id;
   const ticketId = parseInt(ticketIdParam, 10);
 
@@ -753,14 +650,11 @@ app.get('/api/tickets/:id', requireRequesterHeader, async (req: AuthenticatedReq
       return;
     }
 
-    // Ownership Boundary Check (BR-09, BR-10)
+    // Ownership Boundary Check (BR-09, BR-10). BR-21: a non-owner gets the same 404 as a missing Ticket.
     if (ticket.requesterId !== req.currentRequester!.id) {
-      res.status(403).json({
+      res.status(404).json({
         success: false,
-        error: {
-          code: 'FORBIDDEN_TICKET_ACCESS',
-          message: 'You do not have permission to view this ticket.',
-        },
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
       });
       return;
     }
@@ -782,7 +676,7 @@ app.get('/api/tickets/:id', requireRequesterHeader, async (req: AuthenticatedReq
 });
 
 // POST /api/tickets/:id/attachments - Upload Attachment File (Issue 8 - BR-19, BR-20, BR-23)
-app.post('/api/tickets/:id/attachments', requireRequesterHeader, (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/tickets/:id/attachments', ...requesterOnly, (req: AuthenticatedRequest, res: Response) => {
   upload.single('file')(req, res, async (err: any) => {
     if (err) {
       if (err.message === 'INVALID_FILE_TYPE') {
@@ -849,9 +743,9 @@ app.post('/api/tickets/:id/attachments', requireRequesterHeader, (req: Authentic
       // Ownership Check (BR-23)
       if (ticket.requesterId !== req.currentRequester!.id) {
         if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-        return res.status(403).json({
+        return res.status(404).json({
           success: false,
-          error: { code: 'FORBIDDEN_TICKET_ACCESS', message: 'You do not own this ticket.' },
+          error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
         });
       }
 
@@ -970,7 +864,7 @@ app.get('/api/attachments/:id/download', requireAuth, async (req: AuthenticatedR
 });
 
 // PATCH /api/attachments/:id/remove - Soft-Remove Attachment (Issue 8 - BR-21)
-app.patch('/api/attachments/:id/remove', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.patch('/api/attachments/:id/remove', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const attachmentId = parseInt(req.params.id, 10);
   if (isNaN(attachmentId)) {
     res.status(400).json({
@@ -1203,10 +1097,11 @@ app.post('/api/tickets/:id/comments', requireAuth, async (req: AuthenticatedRequ
 });
 
 // PATCH /api/tickets/:id/status - Requester Reopen Ticket Transition (Issue 3 - BR-05, BR-15)
-app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: AuthenticatedRequest, res: Response) => {
+app.patch('/api/tickets/:id/status', ...requesterOnly, async (req: AuthenticatedRequest, res: Response) => {
   const ticketParam = req.params.id;
   const { status, reason } = req.body;
   const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+  const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
 
   if (requestedStatus !== 'REOPENED') {
     res.status(403).json({
@@ -1215,6 +1110,14 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
         code: 'FORBIDDEN_STATUS_TRANSITION',
         message: 'Only IT Staff may resolve, close, or perform this status transition.',
       },
+    });
+    return;
+  }
+
+  if (expectedVersion === null) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'expectedVersion must be a non-negative integer.' },
     });
     return;
   }
@@ -1232,9 +1135,9 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
 
     // Requester Ownership Check
     if (ticket.requesterId !== req.currentRequester!.id) {
-      res.status(403).json({
+      res.status(404).json({
         success: false,
-        error: { code: 'FORBIDDEN_TICKET_ACCESS', message: 'You do not own this ticket.' },
+        error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' },
       });
       return;
     }
@@ -1251,13 +1154,14 @@ app.patch('/api/tickets/:id/status', requireRequesterHeader, async (req: Authent
       return;
     }
 
-    // Reopen Ticket
-    const updatedTicket = await prisma.ticket.update({
+    // Reopen Ticket (version check + increment, BR-13)
+    if (!(await applyVersionedUpdate(ticket.id, expectedVersion, { currentStatus: TicketStatus.REOPENED }))) {
+      const latest = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+      staleUpdate(res, latest?.version ?? 0);
+      return;
+    }
+    const updatedTicket = await prisma.ticket.findUniqueOrThrow({
       where: { id: ticket.id },
-      data: {
-        currentStatus: TicketStatus.REOPENED,
-        updatedAt: new Date(),
-      },
       include: {
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
@@ -1311,8 +1215,9 @@ app.get(
         ];
       }
 
-      if (typeof status === 'string' && Object.values(TicketStatus).includes(status.toUpperCase() as TicketStatus)) {
-        where.currentStatus = status.toUpperCase() as TicketStatus;
+      const statusList = parseStatusList(status);
+      if (statusList.length > 0) {
+        where.currentStatus = { in: statusList as TicketStatus[] };
       }
 
       if (typeof priority === 'string' && Object.values(Priority).includes(priority.toUpperCase() as Priority)) {
@@ -1382,16 +1287,55 @@ app.get(
 // STAFF TICKET OPERATIONS (ISSUE 5)
 // ==========================================
 
-const VALID_TRANSITIONS: Record<string, TicketStatus[]> = {
-  NEW: [TicketStatus.OPEN, TicketStatus.CANCELLED],
-  OPEN: [TicketStatus.IN_PROGRESS, TicketStatus.CANCELLED],
-  IN_PROGRESS: [TicketStatus.WAITING_FOR_REQUESTER, TicketStatus.RESOLVED, TicketStatus.CANCELLED],
-  WAITING_FOR_REQUESTER: [TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CANCELLED],
-  RESOLVED: [TicketStatus.CLOSED],
-  REOPENED: [TicketStatus.IN_PROGRESS, TicketStatus.OPEN, TicketStatus.CANCELLED],
-  CLOSED: [],
-  CANCELLED: [],
+const STAFF_TICKET_INCLUDE = {
+  requester: { select: { id: true, name: true, email: true } },
+  owner: { select: { id: true, name: true, email: true } },
+  category: { select: { id: true, name: true } },
+  relatedSystem: { select: { id: true, name: true } },
+  attachments: { orderBy: { createdAt: 'desc' as const } },
 };
+
+// Adds the backend-calculated workflow feedback used by the staff UI (FR-11).
+async function withWorkflowInfo<T extends { id: number; currentStatus: string }>(ticket: T, role: Role) {
+  const openActionsCount = await prisma.actionTaken.count({ where: { ticketId: ticket.id, status: 'OPEN' } });
+  return {
+    ...ticket,
+    allowedTransitions: getAllowedTransitions(ticket.currentStatus, role, false),
+    openActionsCount,
+  };
+}
+
+// Returns undefined when absent, null when invalid, otherwise the integer.
+function parseExpectedVersion(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function staleUpdate(res: Response, currentVersion: number) {
+  res.status(409).json({
+    success: false,
+    error: {
+      code: 'STALE_UPDATE',
+      message: 'This Ticket was changed by someone else. Reload to see the latest version.',
+      currentVersion,
+    },
+  });
+}
+
+// Atomic conditional update (BR-13): applies `data` only if the stored version still equals
+// `expectedVersion` (when given) and increments the version. Returns false on a version mismatch.
+async function applyVersionedUpdate(
+  ticketId: number,
+  expectedVersion: number | undefined,
+  data: Record<string, unknown>
+) {
+  const result = await prisma.ticket.updateMany({
+    where: { id: ticketId, ...(expectedVersion !== undefined ? { version: expectedVersion } : {}) },
+    data: { ...data, version: { increment: 1 } },
+  });
+  return result.count === 1;
+}
+
 
 // GET /api/staff/tickets/:id - Retrieve One Ticket for IT Staff Operations
 app.get(
@@ -1407,13 +1351,7 @@ app.get(
             { ticketNumber: req.params.id },
           ],
         },
-        include: {
-          requester: { select: { id: true, name: true, email: true } },
-          owner: { select: { id: true, name: true, email: true } },
-          category: { select: { id: true, name: true } },
-          relatedSystem: { select: { id: true, name: true } },
-          attachments: { orderBy: { createdAt: 'desc' } },
-        },
+        include: STAFF_TICKET_INCLUDE,
       });
 
       if (!ticket) {
@@ -1424,7 +1362,7 @@ app.get(
         return;
       }
 
-      res.status(200).json({ success: true, data: ticket });
+      res.status(200).json({ success: true, data: await withWorkflowInfo(ticket, req.user!.role) });
     } catch (error) {
       console.error('Error fetching staff ticket detail:', error);
       res.status(500).json({
@@ -1468,6 +1406,7 @@ app.patch(
     const ticketId = parseInt(req.params.id, 10);
     const { ownerId } = req.body;
     const ownerIdNum = parseInt(ownerId, 10);
+    const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
 
     if (isNaN(ticketId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
@@ -1475,6 +1414,10 @@ app.patch(
     }
     if (isNaN(ownerIdNum)) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'ownerId is required and must be an integer.' } });
+      return;
+    }
+    if (expectedVersion === null) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'expectedVersion must be a non-negative integer.' } });
       return;
     }
 
@@ -1495,9 +1438,13 @@ app.patch(
         return;
       }
 
-      const updatedTicket = await prisma.ticket.update({
+      if (!(await applyVersionedUpdate(ticketId, expectedVersion, { ownerId: ownerIdNum }))) {
+        const latest = await prisma.ticket.findUnique({ where: { id: ticketId } });
+        staleUpdate(res, latest?.version ?? 0);
+        return;
+      }
+      const updatedTicket = await prisma.ticket.findUnique({
         where: { id: ticketId },
-        data: { ownerId: ownerIdNum },
         include: {
           owner: { select: { id: true, name: true, email: true } },
         },
@@ -1522,10 +1469,15 @@ app.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const ticketId = parseInt(req.params.id, 10);
     const { itPriority } = req.body;
+    const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
     const normalizedPriority = typeof itPriority === 'string' ? itPriority.trim().toUpperCase() : '';
 
     if (isNaN(ticketId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
+      return;
+    }
+    if (expectedVersion === null) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'expectedVersion must be a non-negative integer.' } });
       return;
     }
     if (!Object.values(Priority).includes(normalizedPriority as Priority)) {
@@ -1543,10 +1495,12 @@ app.patch(
         return;
       }
 
-      const updatedTicket = await prisma.ticket.update({
-        where: { id: ticketId },
-        data: { itPriority: normalizedPriority as Priority },
-      });
+      if (!(await applyVersionedUpdate(ticketId, expectedVersion, { itPriority: normalizedPriority as Priority }))) {
+        const latest = await prisma.ticket.findUnique({ where: { id: ticketId } });
+        staleUpdate(res, latest?.version ?? 0);
+        return;
+      }
+      const updatedTicket = await prisma.ticket.findUnique({ where: { id: ticketId } });
 
       res.status(200).json({ success: true, data: updatedTicket });
     } catch (error) {
@@ -1568,6 +1522,8 @@ app.patch(
     const ticketId = parseInt(req.params.id, 10);
     const { status, resolutionSummary } = req.body;
     const requestedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+    const expectedVersion = parseExpectedVersion(req.body.expectedVersion);
+    const summary = typeof resolutionSummary === 'string' ? resolutionSummary.trim() : '';
 
     if (isNaN(ticketId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_TICKET_ID', message: 'Invalid ticket ID.' } });
@@ -1580,6 +1536,20 @@ app.patch(
       });
       return;
     }
+    if (typeof expectedVersion !== 'number') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'expectedVersion is required and must be a non-negative integer.' },
+      });
+      return;
+    }
+    if (summary.length > 2000) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'resolutionSummary must be at most 2000 characters.' },
+      });
+      return;
+    }
 
     try {
       const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
@@ -1588,8 +1558,8 @@ app.patch(
         return;
       }
 
-      const permitted = VALID_TRANSITIONS[ticket.currentStatus] || [];
-      if (!permitted.includes(requestedStatus as TicketStatus)) {
+      const permitted = getAllowedTransitions(ticket.currentStatus, req.user!.role, false);
+      if (!permitted.includes(requestedStatus)) {
         res.status(409).json({
           success: false,
           error: {
@@ -1600,17 +1570,34 @@ app.patch(
         return;
       }
 
-      const updatedTicket = await prisma.ticket.update({
-        where: { id: ticketId },
-        data: {
-          currentStatus: requestedStatus as TicketStatus,
-          ...(typeof resolutionSummary === 'string' && resolutionSummary.trim()
-            ? { resolutionSummary: resolutionSummary.trim() }
-            : {}),
-        },
-      });
+      if (requestedStatus === TicketStatus.RESOLVED) {
+        const openCount = await prisma.actionTaken.count({ where: { ticketId, status: 'OPEN' } });
+        const gate = evaluateResolutionGate(openCount, summary || ticket.resolutionSummary);
+        if (!gate.ok) {
+          res.status(409).json({
+            success: false,
+            error: {
+              code: 'RESOLUTION_GATE_FAILED',
+              message: 'The Ticket cannot be resolved yet.',
+              details: gate.reasons,
+            },
+          });
+          return;
+        }
+      }
 
-      res.status(200).json({ success: true, data: updatedTicket });
+      const applied = await applyVersionedUpdate(ticketId, expectedVersion, {
+        currentStatus: requestedStatus as TicketStatus,
+        ...(summary ? { resolutionSummary: summary } : {}),
+      });
+      if (!applied) {
+        const latest = await prisma.ticket.findUnique({ where: { id: ticketId } });
+        staleUpdate(res, latest?.version ?? 0);
+        return;
+      }
+
+      const updatedTicket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: STAFF_TICKET_INCLUDE });
+      res.status(200).json({ success: true, data: await withWorkflowInfo(updatedTicket!, req.user!.role) });
     } catch (error) {
       console.error('Error updating ticket status:', error);
       res.status(500).json({
@@ -1700,6 +1687,312 @@ app.post(
     }
   }
 );
+
+// ==========================================
+// ACTIONS TAKEN (LAB 4)
+// ==========================================
+
+const ACTION_INCLUDE = {
+  performedBy: { select: { id: true, name: true, role: true } },
+  assignee: { select: { id: true, name: true, role: true } },
+} as const;
+
+const ACTION_ORDER = [{ actionAt: 'desc' as const }, { id: 'desc' as const }];
+
+function serializeAction(a: any) {
+  return {
+    id: a.id,
+    ticketId: a.ticketId,
+    actionAt: a.actionAt,
+    description: a.description,
+    result: a.result,
+    performedBy: a.performedBy,
+    assignee: a.assignee,
+    followUpRequired: a.followUpRequired,
+    followUpNote: a.followUpNote,
+    attachmentNotes: a.attachmentNotes,
+    status: a.status,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
+  };
+}
+
+function actionValidationError(res: Response, details: Record<string, string>) {
+  res.status(400).json({
+    success: false,
+    error: { code: 'VALIDATION_ERROR', message: 'Action data is invalid.', details },
+  });
+}
+
+// Validates the fields present in `body`; `current` supplies stored values for PATCH.
+function validateActionFields(
+  body: any,
+  current: { followUpRequired: boolean; followUpNote: string | null } | null
+) {
+  const details: Record<string, string> = {};
+  const data: Record<string, any> = {};
+
+  if (!current || body.description !== undefined) {
+    const d = typeof body.description === 'string' ? body.description.trim() : '';
+    if (d.length < 1 || d.length > 2000) details.description = 'Description is required (1-2000 characters).';
+    else data.description = d;
+  }
+  if (body.result !== undefined) {
+    const r = typeof body.result === 'string' ? body.result.trim() : null;
+    if (r === null || r.length > 1000) details.result = 'Result must be at most 1000 characters.';
+    else data.result = r;
+  }
+  if (body.attachmentNotes !== undefined) {
+    const n = typeof body.attachmentNotes === 'string' ? body.attachmentNotes.trim() : null;
+    if (n === null || n.length > 500) details.attachmentNotes = 'Attachment notes must be at most 500 characters.';
+    else data.attachmentNotes = n;
+  }
+  if (body.actionAt !== undefined) {
+    const t = typeof body.actionAt === 'string' ? new Date(body.actionAt) : null;
+    if (!t || isNaN(t.getTime())) details.actionAt = 'Action date/time is invalid.';
+    else if (t.getTime() > Date.now() + 5 * 60 * 1000) details.actionAt = 'Action date/time cannot be in the future.';
+    else data.actionAt = t;
+  }
+  if (body.followUpRequired !== undefined) {
+    if (typeof body.followUpRequired !== 'boolean') details.followUpRequired = 'Follow-up required must be true or false.';
+    else data.followUpRequired = body.followUpRequired;
+  }
+  if (body.followUpNote !== undefined) {
+    const n = typeof body.followUpNote === 'string' ? body.followUpNote.trim() : null;
+    if (n === null || n.length > 1000) details.followUpNote = 'Follow-up note must be at most 1000 characters.';
+    else data.followUpNote = n;
+  }
+
+  const finalRequired = data.followUpRequired ?? current?.followUpRequired ?? false;
+  const finalNote = data.followUpNote ?? current?.followUpNote ?? '';
+  if (finalRequired && !details.followUpNote && (!finalNote || finalNote.trim().length < 1)) {
+    details.followUpNote = 'Follow-up note is required when follow-up is required.';
+  }
+  return { details, data };
+}
+
+async function isValidAssignee(assigneeId: unknown) {
+  if (typeof assigneeId !== 'number' || !Number.isInteger(assigneeId)) return false;
+  const user = await prisma.user.findUnique({ where: { id: assigneeId } });
+  return !!user && user.isActive && (user.role === Role.IT_STAFF || user.role === Role.ADMINISTRATOR);
+}
+
+function invalidAssignee(res: Response) {
+  res.status(400).json({
+    success: false,
+    error: { code: 'INVALID_ASSIGNEE', message: 'Assignee must be an active IT Staff or Administrator.' },
+  });
+}
+
+function actionNotFound(res: Response) {
+  res.status(404).json({ success: false, error: { code: 'ACTION_NOT_FOUND', message: 'Action not found.' } });
+}
+
+function actionNotEditable(res: Response) {
+  res.status(409).json({
+    success: false,
+    error: { code: 'ACTION_NOT_EDITABLE', message: 'Only OPEN actions can be changed.' },
+  });
+}
+
+function actionsServerError(res: Response, error: unknown, code: string) {
+  console.error(`Actions Taken error (${code}):`, error);
+  res.status(500).json({ success: false, error: { code, message: 'Failed to process the action request.' } });
+}
+
+// Loads a Ticket and one of its actions; sends the 404 response itself when missing.
+async function loadTicketAction(req: AuthenticatedRequest, res: Response) {
+  const ticket = await findTicketByIdOrNumber(req.params.id as string);
+  if (!ticket) {
+    res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+    return null;
+  }
+  const actionId = parseInt(req.params.actionId as string, 10);
+  const action = isNaN(actionId)
+    ? null
+    : await prisma.actionTaken.findFirst({ where: { id: actionId, ticketId: ticket.id } });
+  if (!action) {
+    actionNotFound(res);
+    return null;
+  }
+  return action;
+}
+
+// GET /api/staff/tickets/:id/actions
+app.get(
+  '/api/staff/tickets/:id/actions',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const ticket = await findTicketByIdOrNumber(req.params.id as string);
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+      const actions = await prisma.actionTaken.findMany({
+        where: { ticketId: ticket.id },
+        include: ACTION_INCLUDE,
+        orderBy: ACTION_ORDER,
+      });
+      res.status(200).json({ success: true, data: { actions: actions.map(serializeAction) } });
+    } catch (error) {
+      actionsServerError(res, error, 'FETCH_ACTIONS_ERROR');
+    }
+  }
+);
+
+// POST /api/staff/tickets/:id/actions
+app.post(
+  '/api/staff/tickets/:id/actions',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const ticket = await findTicketByIdOrNumber(req.params.id as string);
+      if (!ticket) {
+        res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+        return;
+      }
+      const body = req.body ?? {};
+      const { details, data } = validateActionFields(body, null);
+      if (Object.keys(details).length > 0) {
+        actionValidationError(res, details);
+        return;
+      }
+      let assigneeId: number | null = null;
+      if (body.assigneeId !== undefined && body.assigneeId !== null) {
+        if (!(await isValidAssignee(body.assigneeId))) {
+          invalidAssignee(res);
+          return;
+        }
+        assigneeId = body.assigneeId;
+      }
+      const created = await prisma.actionTaken.create({
+        data: { ...(data as any), ticketId: ticket.id, performedById: req.user!.id, assigneeId },
+        include: ACTION_INCLUDE,
+      });
+      res.status(201).json({ success: true, data: serializeAction(created) });
+    } catch (error) {
+      actionsServerError(res, error, 'CREATE_ACTION_ERROR');
+    }
+  }
+);
+
+// PATCH /api/staff/tickets/:id/actions/:actionId
+app.patch(
+  '/api/staff/tickets/:id/actions/:actionId',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const action = await loadTicketAction(req, res);
+      if (!action) return;
+      if (action.status !== 'OPEN') {
+        actionNotEditable(res);
+        return;
+      }
+      const body = req.body ?? {};
+      const { details, data } = validateActionFields(body, action);
+      if (Object.keys(details).length > 0) {
+        actionValidationError(res, details);
+        return;
+      }
+      if (body.assigneeId !== undefined) {
+        if (body.assigneeId === null) data.assigneeId = null;
+        else if (await isValidAssignee(body.assigneeId)) data.assigneeId = body.assigneeId;
+        else {
+          invalidAssignee(res);
+          return;
+        }
+      }
+      const updated = await prisma.actionTaken.update({
+        where: { id: action.id },
+        data,
+        include: ACTION_INCLUDE,
+      });
+      res.status(200).json({ success: true, data: serializeAction(updated) });
+    } catch (error) {
+      actionsServerError(res, error, 'UPDATE_ACTION_ERROR');
+    }
+  }
+);
+
+// POST /api/staff/tickets/:id/actions/:actionId/complete
+app.post(
+  '/api/staff/tickets/:id/actions/:actionId/complete',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const action = await loadTicketAction(req, res);
+      if (!action) return;
+      if (action.status !== 'OPEN') {
+        actionNotEditable(res);
+        return;
+      }
+      const supplied = typeof req.body?.result === 'string' ? req.body.result.trim() : '';
+      const result = supplied || (action.result ?? '').trim();
+      if (result.length < 1 || result.length > 1000) {
+        actionValidationError(res, { result: 'Result is required to complete an action (1-1000 characters).' });
+        return;
+      }
+      const updated = await prisma.actionTaken.update({
+        where: { id: action.id },
+        data: { status: 'COMPLETED', result, completedAt: new Date() },
+        include: ACTION_INCLUDE,
+      });
+      res.status(200).json({ success: true, data: serializeAction(updated) });
+    } catch (error) {
+      actionsServerError(res, error, 'COMPLETE_ACTION_ERROR');
+    }
+  }
+);
+
+// POST /api/staff/tickets/:id/actions/:actionId/cancel
+app.post(
+  '/api/staff/tickets/:id/actions/:actionId/cancel',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const action = await loadTicketAction(req, res);
+      if (!action) return;
+      if (action.status !== 'OPEN') {
+        actionNotEditable(res);
+        return;
+      }
+      const updated = await prisma.actionTaken.update({
+        where: { id: action.id },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
+        include: ACTION_INCLUDE,
+      });
+      res.status(200).json({ success: true, data: serializeAction(updated) });
+    } catch (error) {
+      actionsServerError(res, error, 'CANCEL_ACTION_ERROR');
+    }
+  }
+);
+
+// GET /api/tickets/:id/actions - read-only for the owning Requester (and staff)
+app.get('/api/tickets/:id/actions', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const ticket = await findTicketByIdOrNumber(req.params.id as string);
+    const isStaff = req.user!.role === Role.IT_STAFF || req.user!.role === Role.ADMINISTRATOR;
+    if (!ticket || (!isStaff && ticket.requesterId !== req.user!.id)) {
+      res.status(404).json({ success: false, error: { code: 'TICKET_NOT_FOUND', message: 'Ticket not found.' } });
+      return;
+    }
+    const actions = await prisma.actionTaken.findMany({
+      where: { ticketId: ticket.id },
+      include: ACTION_INCLUDE,
+      orderBy: ACTION_ORDER,
+    });
+    res.status(200).json({ success: true, data: { actions: actions.map(serializeAction) } });
+  } catch (error) {
+    actionsServerError(res, error, 'FETCH_ACTIONS_ERROR');
+  }
+});
 
 // ==========================================
 // ADMINISTRATOR USER MANAGEMENT (ISSUE 6)
@@ -1992,6 +2285,193 @@ app.post(
       res.status(500).json({
         success: false,
         error: { code: 'RESET_PASSWORD_ERROR', message: 'Failed to reset password.' },
+      });
+    }
+  }
+);
+
+
+// ---------------------------------------------------------------------------
+// Lab 4: Dashboards (specification.md 8.4, api-spec.md 7). All numbers are calculated here.
+// ---------------------------------------------------------------------------
+const ACTIVE_STATUSES: TicketStatus[] = [
+  TicketStatus.NEW,
+  TicketStatus.OPEN,
+  TicketStatus.IN_PROGRESS,
+  TicketStatus.WAITING_FOR_REQUESTER,
+  TicketStatus.REOPENED,
+];
+const RECENT_LIMIT = 5;
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const DASHBOARD_TICKET_SELECT = {
+  id: true,
+  ticketNumber: true,
+  summary: true,
+  currentStatus: true,
+  updatedAt: true,
+} as const;
+
+function sumStatuses(counts: Record<string, number>, statuses: TicketStatus[]): number {
+  return statuses.reduce((total, s) => total + (counts[s] ?? 0), 0);
+}
+
+app.get(
+  '/api/dashboard/requester',
+  requireAuth,
+  requireRole(Role.REQUESTER),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const requesterId = req.user!.id;
+      const since = new Date(Date.now() - RECENT_WINDOW_MS);
+
+      const [grouped, recentlyUpdated, recentlyResolved] = await Promise.all([
+        prisma.ticket.groupBy({ by: ['currentStatus'], where: { requesterId }, _count: { _all: true } }),
+        prisma.ticket.findMany({
+          where: { requesterId },
+          orderBy: { updatedAt: 'desc' },
+          take: RECENT_LIMIT,
+          select: DASHBOARD_TICKET_SELECT,
+        }),
+        prisma.ticket.findMany({
+          where: {
+            requesterId,
+            currentStatus: { in: [TicketStatus.RESOLVED, TicketStatus.CLOSED] },
+            updatedAt: { gte: since },
+          },
+          orderBy: { updatedAt: 'desc' },
+          take: RECENT_LIMIT,
+          select: DASHBOARD_TICKET_SELECT,
+        }),
+      ]);
+
+      const counts: Record<string, number> = {};
+      for (const g of grouped) counts[g.currentStatus] = g._count._all;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          generatedAt: new Date().toISOString(),
+          metrics: {
+            open: sumStatuses(counts, [TicketStatus.NEW, TicketStatus.OPEN, TicketStatus.REOPENED]),
+            inProgress: sumStatuses(counts, [TicketStatus.IN_PROGRESS]),
+            waitingForRequester: sumStatuses(counts, [TicketStatus.WAITING_FOR_REQUESTER]),
+            resolved: sumStatuses(counts, [TicketStatus.RESOLVED]),
+            closed: sumStatuses(counts, [TicketStatus.CLOSED]),
+          },
+          recentlyUpdated,
+          recentlyResolved,
+        },
+      });
+    } catch (error) {
+      console.error('Error building requester dashboard:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'DASHBOARD_ERROR', message: 'Failed to load the dashboard.' },
+      });
+    }
+  }
+);
+
+app.get(
+  '/api/dashboard/staff',
+  requireAuth,
+  requireRole(Role.IT_STAFF, Role.ADMINISTRATOR),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const me = req.user!;
+      const isAdmin = me.role === Role.ADMINISTRATOR;
+
+      const [byStatus, myAssigned, unassigned, byPriority, myRecentTickets, myOpenActions, myRecentActions, userGroups] =
+        await Promise.all([
+          prisma.ticket.groupBy({ by: ['currentStatus'], _count: { _all: true } }),
+          prisma.ticket.count({ where: { ownerId: me.id, currentStatus: { in: ACTIVE_STATUSES } } }),
+          prisma.ticket.count({ where: { ownerId: null, currentStatus: { in: ACTIVE_STATUSES } } }),
+          prisma.ticket.groupBy({
+            by: ['itPriority'],
+            where: { currentStatus: { in: ACTIVE_STATUSES } },
+            _count: { _all: true },
+          }),
+          prisma.ticket.findMany({
+            where: { ownerId: me.id },
+            orderBy: { updatedAt: 'desc' },
+            take: RECENT_LIMIT,
+            select: DASHBOARD_TICKET_SELECT,
+          }),
+          prisma.actionTaken.count({ where: { assigneeId: me.id, status: ActionStatus.OPEN } }),
+          prisma.actionTaken.findMany({
+            where: { performedById: me.id },
+            orderBy: { actionAt: 'desc' },
+            take: RECENT_LIMIT,
+            select: {
+              id: true,
+              ticketId: true,
+              description: true,
+              status: true,
+              actionAt: true,
+              ticket: { select: { ticketNumber: true } },
+            },
+          }),
+          isAdmin ? prisma.user.groupBy({ by: ['role', 'isActive'], _count: { _all: true } }) : Promise.resolve([]),
+        ]);
+
+      const counts: Record<string, number> = {};
+      for (const g of byStatus) counts[g.currentStatus] = g._count._all;
+
+      const priorities: Record<string, number> = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
+      for (const g of byPriority) priorities[g.itPriority] = g._count._all;
+
+      let userCounts: null | {
+        active: number;
+        inactive: number;
+        activeByRole: Record<string, number>;
+      } = null;
+      if (isAdmin) {
+        userCounts = {
+          active: 0,
+          inactive: 0,
+          activeByRole: { REQUESTER: 0, IT_STAFF: 0, ADMINISTRATOR: 0 },
+        };
+        for (const g of userGroups as { role: string; isActive: boolean; _count: { _all: number } }[]) {
+          if (g.isActive) {
+            userCounts.active += g._count._all;
+            userCounts.activeByRole[g.role] = g._count._all;
+          } else {
+            userCounts.inactive += g._count._all;
+          }
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          generatedAt: new Date().toISOString(),
+          metrics: {
+            new: sumStatuses(counts, [TicketStatus.NEW]),
+            open: sumStatuses(counts, [TicketStatus.OPEN, TicketStatus.REOPENED]),
+            inProgress: sumStatuses(counts, [TicketStatus.IN_PROGRESS]),
+            waitingForRequester: sumStatuses(counts, [TicketStatus.WAITING_FOR_REQUESTER]),
+            myAssigned,
+            unassigned,
+            myOpenActions,
+            byItPriority: priorities,
+          },
+          myRecentTickets,
+          myRecentActions: myRecentActions.map((a) => ({
+            id: a.id,
+            ticketId: a.ticketId,
+            ticketNumber: a.ticket.ticketNumber,
+            description: a.description,
+            status: a.status,
+            actionAt: a.actionAt,
+          })),
+          userCounts,
+        },
+      });
+    } catch (error) {
+      console.error('Error building staff dashboard:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'DASHBOARD_ERROR', message: 'Failed to load the dashboard.' },
       });
     }
   }
